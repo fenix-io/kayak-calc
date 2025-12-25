@@ -9,6 +9,12 @@ This module contains classes and functions for:
 - Interpolation functions
 """
 
+from .point import Point3D
+from .profile import Profile
+from .hull import KayakHull
+
+__all__ = ['Point3D', 'Profile', 'KayakHull']
+
 # Future imports:
 # from .point import Point3D
 # from .profile import Profile

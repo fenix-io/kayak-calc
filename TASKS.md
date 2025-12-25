@@ -29,23 +29,23 @@
 ## Phase 2: Core Data Structures
 
 ### 2.1 Point and Profile Classes
-- [ ] Create `Point3D` class to represent 3D coordinates
+- [x] Create `Point3D` class to represent 3D coordinates
   - Properties: x, y, z coordinates
   - Methods: distance, transformation operations
-- [ ] Create `Profile` class for transverse cross-sections
+- [x] Create `Profile` class for transverse cross-sections
   - Store list of points defining the profile
   - Longitudinal station position
   - Methods: interpolate points, calculate area, find waterline intersection
 
 ### 2.2 Hull Definition
-- [ ] Create `KayakHull` class
+- [x] Create `KayakHull` class
   - Store collection of profiles (bow, stern, intermediate stations)
   - Store coordinate system reference (origin on centerline)
   - Methods:
     - `add_profile(station, points)` - add profile at longitudinal position
     - `get_profile(station)` - retrieve or interpolate profile at position
     - Validate symmetry and data consistency
-- [ ] Implement profile storage and retrieval system
+- [x] Implement profile storage and retrieval system
 
 ---
 
