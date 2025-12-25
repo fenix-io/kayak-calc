@@ -97,17 +97,26 @@
 - [x] Documentation: `docs/PHASE4_TASK4.2_SUMMARY.md`
 
 ### 4.3 Center of Buoyancy
-- [ ] Calculate center of buoyancy (CB) in 3D
+- [x] Calculate center of buoyancy (CB) in 3D
   - Longitudinal position (LCB)
   - Vertical position (VCB)
   - Transverse position (TCB) for heeled conditions
-- [ ] Implement for both upright and heeled conditions
+- [x] Implement for both upright and heeled conditions
+- [x] Create comprehensive test suite (27 tests)
+- [x] Create example scripts with visualizations
+- [x] Documentation: `docs/PHASE4_TASK4.3_SUMMARY.md`
 
 ### 4.4 Center of Gravity
-- [ ] Create CG input/calculation system
-  - Allow manual CG specification
-  - Or calculate from component masses and positions
-- [ ] Store CG coordinates relative to reference origin
+- [x] Create CG input/calculation system
+  - [x] Allow manual CG specification
+  - [x] Calculate from component masses and positions
+  - [x] Validate CG properties
+  - [x] Adjust CG for loading changes
+  - [x] Mass distribution analysis
+- [x] Store CG coordinates relative to reference origin
+- [x] Create comprehensive test suite (44 tests)
+- [x] Create example scripts with visualizations
+- [x] Documentation: `docs/PHASE4_TASK4.4_SUMMARY.md`
 
 ---
 

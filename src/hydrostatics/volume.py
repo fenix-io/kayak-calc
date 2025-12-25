@@ -73,6 +73,59 @@ class DisplacementProperties:
         )
 
 
+@dataclass
+class CenterOfBuoyancy:
+    """
+    Center of Buoyancy (CB) position and related properties.
+    
+    The center of buoyancy is the centroid of the displaced volume, i.e.,
+    the point through which the buoyant force acts. It varies with waterline
+    and heel angle.
+    
+    Attributes:
+        lcb: Longitudinal Center of Buoyancy (m) - x-coordinate
+        vcb: Vertical Center of Buoyancy (m) - z-coordinate  
+        tcb: Transverse Center of Buoyancy (m) - y-coordinate (0 for symmetric upright)
+        volume: Displaced volume (m³)
+        waterline_z: Z-coordinate of the waterline (m)
+        heel_angle: Heel angle in degrees (0 = upright)
+        num_stations: Number of stations used in integration
+        integration_method: Integration method used ('simpson' or 'trapezoidal')
+    
+    Note:
+        - LCB is measured from the origin along the longitudinal (x) axis
+        - VCB is measured from the origin along the vertical (z) axis
+        - TCB is measured from the centerline (y=0); should be ~0 for upright symmetric hulls
+        - Positive x is typically forward (bow direction)
+        - Positive z is typically up
+        - Positive y is typically starboard
+    """
+    
+    lcb: float
+    vcb: float
+    tcb: float
+    volume: float
+    waterline_z: float
+    heel_angle: float = 0.0
+    num_stations: int = 0
+    integration_method: str = 'simpson'
+    
+    def __repr__(self) -> str:
+        """String representation of center of buoyancy."""
+        return (
+            f"CenterOfBuoyancy(\n"
+            f"  LCB={self.lcb:.6f} m,\n"
+            f"  VCB={self.vcb:.6f} m,\n"
+            f"  TCB={self.tcb:.6f} m,\n"
+            f"  volume={self.volume:.6f} m³,\n"
+            f"  waterline_z={self.waterline_z:.4f} m,\n"
+            f"  heel_angle={self.heel_angle:.2f}°,\n"
+            f"  num_stations={self.num_stations},\n"
+            f"  method='{self.integration_method}'\n"
+            f")"
+        )
+
+
 def integrate_simpson(x: np.ndarray, y: np.ndarray) -> float:
     """
     Integrate using Simpson's rule.
@@ -488,3 +541,331 @@ def validate_displacement_properties(
     
     is_valid = len(issues) == 0
     return is_valid, issues
+
+
+def calculate_center_of_buoyancy(
+    hull: KayakHull,
+    waterline_z: float = 0.0,
+    heel_angle: float = 0.0,
+    num_stations: Optional[int] = None,
+    method: str = 'simpson',
+    use_existing_stations: bool = True
+) -> CenterOfBuoyancy:
+    """
+    Calculate the center of buoyancy (CB) of the hull.
+    
+    The center of buoyancy is the centroid of the displaced volume. It is
+    calculated by integrating the first moments of area along the hull length.
+    
+    Mathematical formulation:
+        LCB = ∫ x·A(x) dx / V
+        VCB = ∫ z_c(x)·A(x) dx / V
+        TCB = ∫ y_c(x)·A(x) dx / V
+    
+    where:
+        - x is the longitudinal position (station)
+        - A(x) is the cross-sectional area at position x
+        - z_c(x) is the vertical centroid of the cross-section
+        - y_c(x) is the transverse centroid of the cross-section
+        - V is the total displaced volume
+    
+    Args:
+        hull: KayakHull object with defined profiles
+        waterline_z: Z-coordinate of the waterline (default: 0.0)
+        heel_angle: Heel angle in degrees (default: 0.0)
+        num_stations: Number of stations to use for integration
+                     If None, uses existing hull stations
+        method: Integration method ('simpson' or 'trapezoidal')
+        use_existing_stations: If True, uses hull's existing stations
+                              If False, creates evenly spaced stations
+    
+    Returns:
+        CenterOfBuoyancy object with LCB, VCB, TCB coordinates
+        
+    Example:
+        >>> hull = create_kayak_hull()
+        >>> cb = calculate_center_of_buoyancy(hull, waterline_z=0.0)
+        >>> print(f"LCB: {cb.lcb:.3f} m")
+        >>> print(f"VCB: {cb.vcb:.3f} m")
+        
+    Raises:
+        ValueError: If hull has insufficient profiles
+        ValueError: If calculated volume is zero or negative
+    
+    Note:
+        - For symmetric upright hulls, TCB should be approximately 0
+        - TCB varies significantly with heel angle
+        - Increasing num_stations improves accuracy
+    """
+    if len(hull) < 2:
+        raise ValueError(
+            f"Need at least 2 profiles to calculate CB. "
+            f"Hull has {len(hull)} profile(s)."
+        )
+    
+    # Determine stations to use
+    if use_existing_stations and num_stations is None:
+        stations = hull.get_stations()
+    elif num_stations is not None:
+        # Create evenly spaced stations
+        min_station = hull.get_stern_station()  # Minimum station (stern/aft)
+        max_station = hull.get_bow_station()    # Maximum station (bow/forward)
+        stations = np.linspace(min_station, max_station, num_stations)
+    else:
+        stations = hull.get_stations()
+    
+    # Calculate properties at each station
+    areas = []
+    y_centroids = []
+    z_centroids = []
+    
+    for station in stations:
+        profile = hull.get_profile(station, interpolate=True)
+        props = calculate_section_properties(profile, waterline_z, heel_angle)
+        areas.append(props.area)
+        y_centroids.append(props.centroid_y)
+        z_centroids.append(props.centroid_z)
+    
+    # Convert to numpy arrays
+    x = np.array(stations)
+    a = np.array(areas)
+    y_c = np.array(y_centroids)
+    z_c = np.array(z_centroids)
+    
+    # Calculate volume
+    if method.lower() == 'simpson':
+        volume = integrate_simpson(x, a)
+    elif method.lower() == 'trapezoidal':
+        volume = integrate_trapezoidal(x, a)
+    else:
+        raise ValueError(
+            f"Unknown integration method: {method}. "
+            f"Use 'simpson' or 'trapezoidal'."
+        )
+    
+    if volume <= 0:
+        raise ValueError(
+            f"Calculated volume is {volume:.6f} m³. "
+            f"Volume must be positive to calculate center of buoyancy."
+        )
+    
+    # Calculate first moments (integrate area × coordinate)
+    if method.lower() == 'simpson':
+        moment_x = integrate_simpson(x, a * x)      # Longitudinal moment
+        moment_y = integrate_simpson(x, a * y_c)    # Transverse moment
+        moment_z = integrate_simpson(x, a * z_c)    # Vertical moment
+    else:
+        moment_x = integrate_trapezoidal(x, a * x)
+        moment_y = integrate_trapezoidal(x, a * y_c)
+        moment_z = integrate_trapezoidal(x, a * z_c)
+    
+    # Calculate centroid coordinates (moment / volume)
+    lcb = moment_x / volume
+    tcb = moment_y / volume
+    vcb = moment_z / volume
+    
+    return CenterOfBuoyancy(
+        lcb=lcb,
+        vcb=vcb,
+        tcb=tcb,
+        volume=volume,
+        waterline_z=waterline_z,
+        heel_angle=heel_angle,
+        num_stations=len(stations),
+        integration_method=method
+    )
+
+
+def calculate_cb_curve(
+    hull: KayakHull,
+    waterlines: List[float],
+    heel_angle: float = 0.0,
+    num_stations: Optional[int] = None,
+    method: str = 'simpson',
+    use_existing_stations: bool = True
+) -> List[CenterOfBuoyancy]:
+    """
+    Calculate center of buoyancy at multiple waterline positions.
+    
+    This function is useful for analyzing how CB moves with draft/waterline.
+    
+    Args:
+        hull: KayakHull object
+        waterlines: List of waterline z-coordinates
+        heel_angle: Heel angle in degrees (default: 0.0)
+        num_stations: Number of stations for integration
+        method: Integration method ('simpson' or 'trapezoidal')
+        use_existing_stations: Whether to use hull's existing stations
+    
+    Returns:
+        List of CenterOfBuoyancy objects, one for each waterline
+        
+    Example:
+        >>> waterlines = [-0.3, -0.2, -0.1, 0.0]
+        >>> cb_curve = calculate_cb_curve(hull, waterlines)
+        >>> for wl, cb in zip(waterlines, cb_curve):
+        ...     print(f"WL {wl:.2f}: LCB={cb.lcb:.3f}, VCB={cb.vcb:.3f}")
+    """
+    results = []
+    
+    for wl in waterlines:
+        try:
+            cb = calculate_center_of_buoyancy(
+                hull, 
+                waterline_z=wl,
+                heel_angle=heel_angle,
+                num_stations=num_stations,
+                method=method,
+                use_existing_stations=use_existing_stations
+            )
+            results.append(cb)
+        except ValueError as e:
+            # Handle cases where volume might be zero at certain waterlines
+            # Create a CB object with NaN values
+            cb = CenterOfBuoyancy(
+                lcb=np.nan,
+                vcb=np.nan,
+                tcb=np.nan,
+                volume=0.0,
+                waterline_z=wl,
+                heel_angle=heel_angle,
+                num_stations=num_stations or len(hull.get_stations()),
+                integration_method=method
+            )
+            results.append(cb)
+    
+    return results
+
+
+def calculate_cb_at_heel_angles(
+    hull: KayakHull,
+    heel_angles: List[float],
+    waterline_z: float = 0.0,
+    num_stations: Optional[int] = None,
+    method: str = 'simpson',
+    use_existing_stations: bool = True
+) -> List[CenterOfBuoyancy]:
+    """
+    Calculate center of buoyancy at multiple heel angles.
+    
+    This function is useful for stability analysis, showing how CB moves
+    with heel angle. The transverse position (TCB) is particularly important
+    for stability calculations.
+    
+    Args:
+        hull: KayakHull object
+        heel_angles: List of heel angles in degrees
+        waterline_z: Z-coordinate of the waterline (default: 0.0)
+        num_stations: Number of stations for integration
+        method: Integration method ('simpson' or 'trapezoidal')
+        use_existing_stations: Whether to use hull's existing stations
+    
+    Returns:
+        List of CenterOfBuoyancy objects, one for each heel angle
+        
+    Example:
+        >>> heel_angles = [0, 5, 10, 15, 20]
+        >>> cb_at_heels = calculate_cb_at_heel_angles(hull, heel_angles)
+        >>> for angle, cb in zip(heel_angles, cb_at_heels):
+        ...     print(f"Heel {angle}°: TCB={cb.tcb:.3f} m")
+    """
+    results = []
+    
+    for angle in heel_angles:
+        cb = calculate_center_of_buoyancy(
+            hull,
+            waterline_z=waterline_z,
+            heel_angle=angle,
+            num_stations=num_stations,
+            method=method,
+            use_existing_stations=use_existing_stations
+        )
+        results.append(cb)
+    
+    return results
+
+
+def validate_center_of_buoyancy(
+    cb: CenterOfBuoyancy,
+    hull: Optional[KayakHull] = None,
+    tolerance: float = 1e-6
+) -> Tuple[bool, List[str]]:
+    """
+    Validate center of buoyancy calculation results.
+    
+    Checks for:
+    - Finite CB coordinates
+    - Positive volume
+    - CB within reasonable bounds relative to hull
+    - TCB near zero for upright symmetric hulls
+    
+    Args:
+        cb: CenterOfBuoyancy object to validate
+        hull: Optional KayakHull for bounds checking
+        tolerance: Tolerance for numerical checks
+    
+    Returns:
+        Tuple of (is_valid, list_of_issues)
+        
+    Example:
+        >>> cb = calculate_center_of_buoyancy(hull)
+        >>> is_valid, issues = validate_center_of_buoyancy(cb, hull)
+        >>> if not is_valid:
+        ...     for issue in issues:
+        ...         print(f"Warning: {issue}")
+    """
+    issues = []
+    
+    # Check for finite values
+    if not np.isfinite(cb.lcb):
+        issues.append(f"Non-finite LCB: {cb.lcb}")
+    
+    if not np.isfinite(cb.vcb):
+        issues.append(f"Non-finite VCB: {cb.vcb}")
+    
+    if not np.isfinite(cb.tcb):
+        issues.append(f"Non-finite TCB: {cb.tcb}")
+    
+    # Check volume
+    if cb.volume <= tolerance:
+        issues.append(f"Volume too small or negative: {cb.volume:.6f} m³")
+    
+    # If hull provided, check if CB is within hull bounds
+    if hull is not None and len(issues) == 0:  # Only check if no issues so far
+        stations = hull.get_stations()
+        min_station = min(stations)
+        max_station = max(stations)
+        
+        # LCB should be within hull length
+        if cb.lcb < min_station - tolerance or cb.lcb > max_station + tolerance:
+            issues.append(
+                f"LCB ({cb.lcb:.3f} m) outside hull bounds "
+                f"[{min_station:.3f}, {max_station:.3f}]"
+            )
+        
+        # For upright condition, TCB should be near zero for symmetric hulls
+        if abs(cb.heel_angle) < 1.0:  # Nearly upright
+            if abs(cb.tcb) > 0.01:  # More than 1 cm off centerline
+                issues.append(
+                    f"TCB ({cb.tcb:.4f} m) significantly off centerline "
+                    f"for upright condition (expected ~0 for symmetric hull)"
+                )
+        
+        # VCB should be below waterline (negative z if waterline at z=0)
+        if cb.vcb > cb.waterline_z + tolerance:
+            issues.append(
+                f"VCB ({cb.vcb:.3f} m) above waterline ({cb.waterline_z:.3f} m). "
+                f"This is physically impossible."
+            )
+    
+    # Check heel angle range
+    if abs(cb.heel_angle) > 90 + tolerance:
+        issues.append(f"Heel angle out of range: {cb.heel_angle}°")
+    
+    # Check number of stations
+    if cb.num_stations < 2:
+        issues.append(f"Too few stations: {cb.num_stations}")
+    
+    is_valid = len(issues) == 0
+    return is_valid, issues
+
