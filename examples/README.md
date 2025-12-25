@@ -27,6 +27,76 @@ python examples/interpolation_examples.py
 - `example_symmetric_profile.png` - 2D symmetric profile generation
 - `example_complete_hull.png` - 3D complete hull with surface mesh
 
+### righting_arm_examples.py
+
+Comprehensive demonstration of righting arm (GZ) and stability curve calculations.
+
+**Run the examples:**
+```bash
+python examples/righting_arm_examples.py
+```
+
+**What it demonstrates:**
+1. **Single Angle GZ Calculation** - Calculate righting arm at specific heel angle
+2. **Complete GZ Curve Generation** - Generate full stability curve (0° to 90°)
+3. **Stability Metrics Analysis** - Extract key stability parameters
+4. **CG Position Comparison** - Compare stability for different CG locations
+5. **Waterline Comparison** - Compare stability at different loading conditions
+
+**Generated visualizations:**
+- `example_single_gz.png` - Single heel angle calculation
+- `example_gz_curve.png` - Complete stability curve
+- `example_stability_metrics.png` - Key stability metrics
+- `example_cg_comparison.png` - CG position comparison
+- `example_waterline_comparison.png` - Loading condition comparison
+
+### stability_analyzer_examples.py
+
+Demonstration of the object-oriented StabilityAnalyzer interface for stability analysis.
+
+**Run the examples:**
+```bash
+python examples/stability_analyzer_examples.py
+```
+
+**What it demonstrates:**
+1. **Basic Analyzer Usage** - Create analyzer and calculate GZ at specific angles
+2. **Generate Stability Curves** - Generate and analyze complete stability curves
+3. **Comprehensive Summary** - Get all stability information in one call
+4. **Compare CG Positions** - Compare stability for multiple CG configurations
+5. **Compare Waterlines** - Compare different loading conditions
+6. **Custom Angle Ranges** - Use custom heel angle ranges and steps
+7. **Quick Analysis** - Use convenience function for rapid analysis
+8. **Find Key Values** - Extract maximum GZ, GM, vanishing angle, etc.
+
+**Generated visualizations:**
+- `analyzer_example2_curve.png` - Stability curve generation
+- `analyzer_example4_cg_comparison.png` - CG position comparison
+- `analyzer_example5_waterline_comparison.png` - Loading condition comparison
+- `analyzer_example6_custom_ranges.png` - Custom angle range curves
+
+### stability_criteria_examples.py
+
+Demonstration of stability criteria checking and assessment for safety evaluation.
+
+**Run the examples:**
+```bash
+python examples/stability_criteria_examples.py
+```
+
+**What it demonstrates:**
+1. **Basic Criteria Check** - Check if kayak meets stability requirements
+2. **Compare Configurations** - Assess multiple configurations against criteria
+3. **Custom Criteria** - Use custom thresholds for different applications
+4. **Detailed Check Analysis** - Detailed information for each criterion
+5. **Strict vs Normal Mode** - Comparison of evaluation modes
+6. **Quick Assessment** - Convenience function for rapid criteria checking
+7. **Visual Criteria Report** - Comprehensive visual assessment report
+
+**Generated visualizations:**
+- `criteria_example2_comparison.png` - Configuration comparison
+- `criteria_example7_report.png` - Comprehensive stability report
+
 ## Requirements
 
 To run the examples, you need:

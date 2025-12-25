@@ -123,27 +123,39 @@
 ## Phase 5: Stability Analysis
 
 ### 5.1 Righting Arm Calculation
-- [ ] Implement GZ calculation for given heel angle
+- [x] Implement GZ calculation for given heel angle
   - GZ = horizontal distance between CG and CB when heeled
   - Account for coordinate transformations
-- [ ] Calculate range of positive stability
-- [ ] Identify maximum GZ and angle of maximum GZ
+- [x] Calculate range of positive stability
+- [x] Identify maximum GZ and angle of maximum GZ
+- [x] Create comprehensive test suite (31 tests passing)
+- [x] Create example scripts with visualizations
+- [x] Documentation: `docs/PHASE5_TASK5.1_SUMMARY.md`
 
-### 5.2 Stability Curve Generation
-- [ ] Create `StabilityAnalyzer` class
+### 5.2 Stability Curve Generation ✅
+- [x] Create `StabilityAnalyzer` class
   - Initialize with hull geometry and CG position
   - Method to calculate GZ for single heel angle
   - Method to generate full stability curve (0° to 90° or more)
-- [ ] Calculate stability curve data
+- [x] Calculate stability curve data
   - Array of heel angles
   - Corresponding GZ values
   - Identify key stability parameters
+- **Status:** Complete - `src/stability/analyzer.py` with comprehensive OOP interface
+- **Tests:** 28 tests passing in `tests/test_analyzer.py`
+- **Examples:** 8 examples in `examples/stability_analyzer_examples.py`
+- **Documentation:** Complete in `docs/PHASE5_TASK5.2_SUMMARY.md`
 
-### 5.3 Stability Metrics
-- [ ] Calculate metacentric height (GM) for small angles
-- [ ] Calculate angle of vanishing stability
-- [ ] Calculate area under GZ curve (dynamic stability)
-- [ ] Implement stability criteria checks (if applicable)
+### 5.3 Stability Metrics ✅
+- [x] Calculate metacentric height (GM) for small angles
+- [x] Calculate angle of vanishing stability
+- [x] Calculate area under GZ curve (dynamic stability)
+- [x] Implement stability criteria checks (if applicable)
+- **Status:** Complete - `src/stability/criteria.py` with comprehensive criteria assessment system
+- **Tests:** 39 tests passing in `tests/test_criteria.py`
+- **Examples:** 7 examples in `examples/stability_criteria_examples.py`
+- **Documentation:** Complete in `docs/PHASE5_TASK5.3_SUMMARY.md`
+- **Note:** GM, vanishing angle, and area calculations were already implemented in Tasks 5.1 & 5.2
 
 ---
 
