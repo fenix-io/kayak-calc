@@ -52,22 +52,24 @@
 ## Phase 3: Geometry and Interpolation
 
 ### 3.1 Linear Interpolation Functions
-- [ ] Implement transverse interpolation
+- [x] Implement transverse interpolation
   - Interpolate between port and starboard points on a single profile
   - Generate intermediate points along profile curve
-- [ ] Implement longitudinal interpolation
+- [x] Implement longitudinal interpolation
   - Interpolate between adjacent profiles to create intermediate cross-sections
   - Handle varying number of points in different profiles
-- [ ] Implement bow/stern interpolation
+- [x] Implement bow/stern interpolation
   - Interpolate from end profiles to bow/stern apex points
   - Handle tapering geometry correctly
 
 ### 3.2 Coordinate Transformations
-- [ ] Create transformation functions for heel angles
+- [x] Create transformation functions for heel angles
   - Rotate coordinates about longitudinal axis (roll)
   - Transform from upright to heeled coordinate system
-- [ ] Implement waterline intersection calculation
+- [x] Implement waterline intersection calculation
   - Find intersection points of profile with water surface
+  - Handle both upright and heeled conditions
+  - Account for trim angle if needed
   - Handle both upright and heeled conditions
   - Account for trim angle if needed
 
