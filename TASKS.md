@@ -78,20 +78,23 @@
 ## Phase 4: Hydrostatic Calculations
 
 ### 4.1 Cross-Section Properties
-- [ ] Calculate cross-sectional area below waterline
+- [x] Calculate cross-sectional area below waterline
   - For upright condition
   - For heeled condition
-- [ ] Calculate centroid of cross-sectional area
+- [x] Calculate centroid of cross-sectional area
   - First moments of area
   - Centroid coordinates
 
 ### 4.2 Volume Integration
-- [ ] Implement numerical integration along length
+- [x] Implement numerical integration along length
   - Simpson's rule for volume calculation
   - Trapezoidal rule as alternative
   - Handle irregular station spacing
-- [ ] Calculate total displacement volume
-- [ ] Calculate displaced mass (volume × water density)
+- [x] Calculate total displacement volume
+- [x] Calculate displaced mass (volume × water density)
+- [x] Create comprehensive test suite (39 tests)
+- [x] Create example scripts demonstrating usage
+- [x] Documentation: `docs/PHASE4_TASK4.2_SUMMARY.md`
 
 ### 4.3 Center of Buoyancy
 - [ ] Calculate center of buoyancy (CB) in 3D
