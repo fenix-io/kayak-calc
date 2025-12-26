@@ -490,5 +490,169 @@ class TestEdgeCases:
         assert not wl.is_below_waterline(Point3D(0, 0, 1))  # Above
 
 
+class TestRotationMatrixProperties:
+    """Tests for rotation matrix mathematical properties."""
+    
+    def test_rotation_preserves_distance(self):
+        """Test that rotation preserves distance from origin."""
+        point = Point3D(1.0, 2.0, 3.0)
+        original_dist = np.sqrt(point.x**2 + point.y**2 + point.z**2)
+        
+        # Apply various heel angles
+        for angle in [30, 45, 60, 90, 120, 180]:
+            heeled = apply_heel(point, angle)
+            heeled_dist = np.sqrt(heeled.x**2 + heeled.y**2 + heeled.z**2)
+            assert heeled_dist == pytest.approx(original_dist, rel=1e-10)
+    
+    def test_rotation_preserves_x_coordinate(self):
+        """Test that heel rotation doesn't change x-coordinate."""
+        point = Point3D(1.0, 2.0, 3.0)
+        
+        for angle in [0, 15, 30, 45, 60, 75, 90]:
+            heeled = apply_heel(point, angle)
+            assert heeled.x == pytest.approx(point.x, abs=1e-10)
+    
+    def test_inverse_rotation(self):
+        """Test that positive and negative rotations are inverses."""
+        point = Point3D(1.0, 2.0, 3.0)
+        
+        for angle in [30, 45, 60, 90]:
+            # Apply rotation
+            rotated = apply_heel(point, angle)
+            # Apply inverse rotation
+            back = apply_heel(rotated, -angle)
+            
+            assert back.x == pytest.approx(point.x, abs=1e-10)
+            assert back.y == pytest.approx(point.y, abs=1e-10)
+            assert back.z == pytest.approx(point.z, abs=1e-10)
+    
+    def test_rotation_composition(self):
+        """Test that rotating by A then B equals rotating by A+B."""
+        point = Point3D(1.0, 2.0, 3.0)
+        
+        # Rotate by 30° then 45°
+        step1 = apply_heel(point, 30)
+        step2 = apply_heel(step1, 45)
+        
+        # Rotate directly by 75°
+        direct = apply_heel(point, 75)
+        
+        assert step2.x == pytest.approx(direct.x, abs=1e-10)
+        assert step2.y == pytest.approx(direct.y, abs=1e-10)
+        assert step2.z == pytest.approx(direct.z, abs=1e-10)
+    
+    def test_360_degree_rotation_identity(self):
+        """Test that 360° rotation returns to original position."""
+        point = Point3D(1.5, 2.5, 3.5)
+        rotated = apply_heel(point, 360)
+        
+        assert rotated.x == pytest.approx(point.x, abs=1e-10)
+        assert rotated.y == pytest.approx(point.y, abs=1e-10)
+        assert rotated.z == pytest.approx(point.z, abs=1e-10)
+    
+    def test_180_degree_rotation_symmetry(self):
+        """Test that 180° rotation inverts y and z."""
+        point = Point3D(1.0, 2.0, 3.0)
+        rotated = apply_heel(point, 180)
+        
+        assert rotated.x == pytest.approx(point.x, abs=1e-10)
+        assert rotated.y == pytest.approx(-point.y, abs=1e-10)
+        assert rotated.z == pytest.approx(-point.z, abs=1e-10)
+    
+    def test_small_angle_approximation(self):
+        """Test rotation for very small angles."""
+        point = Point3D(1.0, 0.0, 1.0)
+        
+        # For small angles, rotation should be approximately linear
+        angle_degrees = 0.01  # Very small angle
+        heeled = apply_heel(point, angle_degrees)
+        
+        # Change should be proportional to angle
+        dy = heeled.y - point.y
+        dz = heeled.z - point.z
+        
+        # For small angle θ in radians: y_new ≈ y - z*θ, z_new ≈ z + y*θ
+        angle_rad = np.deg2rad(angle_degrees)
+        expected_dy = -point.z * angle_rad
+        expected_dz = point.y * angle_rad
+        
+        assert dy == pytest.approx(expected_dy, abs=1e-6)
+        assert dz == pytest.approx(expected_dz, abs=1e-6)
+
+
+class TestWaterlineEdgeCases:
+    """Additional edge cases for waterline calculations."""
+    
+    def test_waterline_at_exact_keel(self):
+        """Test waterline positioned exactly at keel level."""
+        points = [
+            Point3D(0.0, -1.0, 0.0),
+            Point3D(0.0, -1.0, -1.0),  # Keel
+            Point3D(0.0, 1.0, -1.0),   # Keel
+            Point3D(0.0, 1.0, 0.0)
+        ]
+        profile = Profile(0.0, points)
+        
+        # Waterline at keel
+        waterline = Waterline(z_reference=-1.0)
+        submerged = get_submerged_points(profile, waterline)
+        
+        # Should have minimal or no submerged area
+        assert len(submerged) <= 2
+    
+    def test_waterline_at_exact_deck(self):
+        """Test waterline positioned exactly at deck level."""
+        points = [
+            Point3D(0.0, -1.0, 0.0),   # Deck
+            Point3D(0.0, -1.0, -1.0),
+            Point3D(0.0, 1.0, -1.0),
+            Point3D(0.0, 1.0, 0.0)     # Deck
+        ]
+        profile = Profile(0.0, points)
+        
+        # Waterline at deck
+        waterline = Waterline(z_reference=0.0)
+        submerged = get_submerged_points(profile, waterline)
+        
+        # Should include full profile
+        assert len(submerged) >= 3
+    
+    def test_waterline_above_hull(self):
+        """Test waterline positioned above entire hull."""
+        points = [
+            Point3D(0.0, -1.0, -0.5),
+            Point3D(0.0, -1.0, -1.0),
+            Point3D(0.0, 1.0, -1.0),
+            Point3D(0.0, 1.0, -0.5)
+        ]
+        profile = Profile(0.0, points)
+        
+        # Waterline well above hull - all points are below waterline
+        waterline = Waterline(z_reference=1.0)
+        area = calculate_submerged_area(profile, waterline)
+        
+        # Should have full profile area (entire hull is submerged)
+        # Area of rectangle: width=2.0, height=0.5
+        expected_area = 2.0 * 0.5
+        assert area == pytest.approx(expected_area, rel=1e-3)
+    
+    def test_waterline_below_hull(self):
+        """Test waterline positioned below entire hull."""
+        points = [
+            Point3D(0.0, -1.0, 0.0),
+            Point3D(0.0, -1.0, -1.0),
+            Point3D(0.0, 1.0, -1.0),
+            Point3D(0.0, 1.0, 0.0)
+        ]
+        profile = Profile(0.0, points)
+        
+        # Waterline well below hull
+        waterline = Waterline(z_reference=-2.0)
+        submerged = get_submerged_points(profile, waterline)
+        
+        # Should have no submerged points
+        assert len(submerged) == 0
+
+
 if __name__ == '__main__':
     pytest.main([__file__, '-v'])
