@@ -60,11 +60,11 @@ The Kayak Calculation Tool performs naval architecture calculations specifically
 
 ### Step 1: Check Prerequisites
 
-You need Python 3.8 or later:
+You need Python 3.11 or later:
 
 ```bash
 python --version
-# Should show: Python 3.8.x or higher
+# Should show: Python 3.11.x or higher
 ```
 
 If you don't have Python installed, download it from [python.org](https://www.python.org/).

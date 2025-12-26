@@ -29,7 +29,7 @@ pip install -e .
 pip install -r requirements.txt
 ```
 
-**Dependencies:** Python 3.8+, NumPy, SciPy, Matplotlib
+**Dependencies:** Python 3.11+, NumPy, SciPy, Matplotlib
 
 ---
 

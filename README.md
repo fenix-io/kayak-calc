@@ -6,7 +6,7 @@
 [![Integration Tests](https://github.com/fenix-io/kyk-calc/actions/workflows/ci.yml/badge.svg?event=push&job=test-integration)](https://github.com/fenix-io/kyk-calc/actions/workflows/ci.yml)
 [![Validation Tests](https://github.com/fenix-io/kyk-calc/actions/workflows/ci.yml/badge.svg?event=push&job=test-validation)](https://github.com/fenix-io/kyk-calc/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/fenix-io/kyk-calc/branch/main/graph/badge.svg)](https://codecov.io/gh/fenix-io/kyk-calc)
-[![Python Version](https://img.shields.io/badge/python-3.8%2B-blue.svg)](https://www.python.org/downloads/)
+[![Python Version](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 **Professional hydrostatic and stability analysis for kayak hulls**
@@ -96,7 +96,7 @@ plot_stability_curve(results, show=True)
 ## 🔧 Installation
 
 ### Prerequisites
-- Python 3.8 or higher
+- Python 3.11 or higher
 - pip package manager
 
 ### Standard Installation
