@@ -1,0 +1,20 @@
+# Generated: 2025-12-26 01:48:30
+# Kayak Calculation Tool - Data Export
+#
+# Export Type: Hydrostatic Properties
+# Waterline Z: 0.000000 m
+# Number of Stations: 9
+# Integration Method: simpson
+# hull_file: data/sample_hull_kayak.json
+# waterline_z: 0.0
+# water_density: 1000.0
+# analysis_type: Basic Displacement Calculation
+#
+Property,Value,Unit
+Volume,0.096461,m³
+Displacement,96.461342,kg
+LCB (Longitudinal CB),2.600000,m
+VCB (Vertical CB),-0.068064,m
+TCB (Transverse CB),0.000000,m
+Waterline Z,0.000000,m
+Heel Angle,0.000000,degrees

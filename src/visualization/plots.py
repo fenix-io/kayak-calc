@@ -340,6 +340,7 @@ def plot_hull_3d(
     
     # Apply heel transformation if needed
     def transform_points(points):
+        """Apply heel transformation to a list of points."""
         if abs(heel_angle) > 1e-6:
             return [apply_heel(pt, heel_angle) for pt in points]
         return points
@@ -1735,6 +1736,7 @@ Error: {str(e)[:60]}
     button = Button(ax_button, 'Pause')
     
     def toggle_pause(event):
+        """Toggle animation play/pause state."""
         animation_paused[0] = not animation_paused[0]
         button.label.set_text('Play' if animation_paused[0] else 'Pause')
         fig.canvas.draw_idle()
@@ -1941,6 +1943,7 @@ Stability Metrics:
     button_reset = Button(ax_reset, 'Reset')
     
     def reset(event):
+        """Reset sliders to initial CG position."""
         slider_lcg.reset()
         slider_vcg.reset()
     

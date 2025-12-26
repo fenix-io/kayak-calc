@@ -46,6 +46,12 @@ class Config:
     """
     
     def __init__(self):
+        """
+        Initialize configuration with default values.
+        
+        Sets up default values for water density, gravity, integration settings,
+        and analysis parameters.
+        """
         self.water_density = WATER_DENSITY
         self.gravity = GRAVITY
         self.integration_method = DEFAULT_INTEGRATION_METHOD

@@ -712,6 +712,15 @@ def get_heel_angle_for_waterline(
     from scipy.optimize import brentq
     
     def draft_error(heel_angle):
+        """
+        Calculate error between actual and target draft at given heel angle.
+        
+        Args:
+            heel_angle: Heel angle in degrees
+            
+        Returns:
+            Draft error (actual - target)
+        """
         # Apply heel to profile
         heeled = apply_heel_to_profile(profile, heel_angle)
         

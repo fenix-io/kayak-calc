@@ -116,6 +116,26 @@ class CenterOfGravity:
         )
     
     @property
+    def x(self) -> float:
+        """Longitudinal position (alias for lcg)."""
+        return self.lcg
+    
+    @property
+    def y(self) -> float:
+        """Transverse position (alias for tcg)."""
+        return self.tcg
+    
+    @property
+    def z(self) -> float:
+        """Vertical position (alias for vcg)."""
+        return self.vcg
+    
+    @property
+    def mass(self) -> float:
+        """Total mass (alias for total_mass)."""
+        return self.total_mass
+    
+    @property
     def weight(self) -> float:
         """Calculate weight force in Newtons (mass × gravity)."""
         g = 9.81  # m/s² (standard gravity)
@@ -145,6 +165,44 @@ class CenterOfGravity:
             ]
         
         return data
+    
+    @classmethod
+    def from_components(cls, components: List[dict], include_components: bool = True) -> 'CenterOfGravity':
+        """
+        Create CenterOfGravity from list of component dictionaries.
+        
+        Convenience class method for creating CG from components specified
+        as dictionaries. Each component dict should have keys:
+        'mass', 'x', 'y', 'z', and optionally 'name' and 'description'.
+        
+        Args:
+            components: List of dicts with 'mass', 'x', 'y', 'z' keys
+            include_components: If True, store components in result
+        
+        Returns:
+            CenterOfGravity object
+        
+        Example:
+            >>> cg = CenterOfGravity.from_components([
+            ...     {'mass': 20.0, 'x': 2.0, 'y': 0.0, 'z': -0.15, 'name': 'hull'},
+            ...     {'mass': 80.0, 'x': 2.5, 'y': 0.0, 'z': -0.35, 'name': 'paddler'},
+            ... ])
+        """
+        mass_components = []
+        for comp in components:
+            name = comp.get('name', 'component')
+            description = comp.get('description', '')
+            mass_components.append(
+                MassComponent(
+                    name=name,
+                    mass=comp['mass'],
+                    x=comp['x'],
+                    y=comp['y'],
+                    z=comp['z'],
+                    description=description
+                )
+            )
+        return calculate_cg_from_components(mass_components, include_components)
 
 
 def calculate_cg_from_components(
