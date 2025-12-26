@@ -1,5 +1,14 @@
 # Kayak Calculation Tool (kyk-calc)
 
+[![CI](https://github.com/fenix-io/kyk-calc/actions/workflows/ci.yml/badge.svg)](https://github.com/fenix-io/kyk-calc/actions/workflows/ci.yml)
+[![Lint](https://github.com/fenix-io/kyk-calc/actions/workflows/ci.yml/badge.svg?event=push&job=lint)](https://github.com/fenix-io/kyk-calc/actions/workflows/ci.yml)
+[![Unit Tests](https://github.com/fenix-io/kyk-calc/actions/workflows/ci.yml/badge.svg?event=push&job=test-unit)](https://github.com/fenix-io/kyk-calc/actions/workflows/ci.yml)
+[![Integration Tests](https://github.com/fenix-io/kyk-calc/actions/workflows/ci.yml/badge.svg?event=push&job=test-integration)](https://github.com/fenix-io/kyk-calc/actions/workflows/ci.yml)
+[![Validation Tests](https://github.com/fenix-io/kyk-calc/actions/workflows/ci.yml/badge.svg?event=push&job=test-validation)](https://github.com/fenix-io/kyk-calc/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/fenix-io/kyk-calc/branch/main/graph/badge.svg)](https://codecov.io/gh/fenix-io/kyk-calc)
+[![Python Version](https://img.shields.io/badge/python-3.8%2B-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 **Professional hydrostatic and stability analysis for kayak hulls**
 
 A Python application for calculating displacement, centers of buoyancy/gravity, and stability characteristics of kayak hulls using numerical naval architecture methods.
