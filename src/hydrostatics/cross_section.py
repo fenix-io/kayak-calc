@@ -17,7 +17,7 @@ References:
 - Principles of Naval Architecture Series, SNAME
 """
 
-from typing import List, Tuple, Optional
+from typing import List, Tuple
 from dataclasses import dataclass
 import numpy as np
 
@@ -28,10 +28,10 @@ from ..geometry import Profile
 class CrossSectionProperties:
     """
     Hydrostatic properties of a transverse cross-section.
-    
+
     This class encapsulates the calculated properties of a hull cross-section
     at a specific longitudinal station, waterline, and heel angle.
-    
+
     Attributes:
         area: Submerged cross-sectional area (m² or consistent units)
         centroid_y: Transverse position of area centroid (m)
@@ -39,28 +39,28 @@ class CrossSectionProperties:
         station: Longitudinal position of cross-section (m)
         waterline_z: Z-coordinate of the waterline (m)
         heel_angle: Heel angle in degrees (0 = upright, positive = starboard down)
-        
+
     Properties:
         centroid: Tuple of (y, z) centroid coordinates
-        
+
     Note:
         - For upright conditions, centroid_y should be close to 0 (centerline)
         - For heeled conditions, centroid_y shifts to the low side
         - Centroid_z is always negative (below waterline) for submerged sections
     """
-    
+
     area: float
     centroid_y: float
     centroid_z: float
     station: float
     waterline_z: float
     heel_angle: float = 0.0
-    
+
     @property
     def centroid(self) -> Tuple[float, float]:
         """Get centroid coordinates as a tuple (y, z)."""
         return (self.centroid_y, self.centroid_z)
-    
+
     def __repr__(self) -> str:
         """String representation of cross-section properties."""
         return (
@@ -72,11 +72,11 @@ class CrossSectionProperties:
             f"  heel_angle={self.heel_angle:.2f}°\n"
             f")"
         )
-    
+
     def is_valid(self) -> bool:
         """
         Check if the properties represent a valid submerged section.
-        
+
         Returns:
             True if area > 0 and centroid is below waterline
         """
@@ -84,37 +84,35 @@ class CrossSectionProperties:
 
 
 def calculate_section_properties(
-    profile: Profile,
-    waterline_z: float = 0.0,
-    heel_angle: float = 0.0
+    profile: Profile, waterline_z: float = 0.0, heel_angle: float = 0.0
 ) -> CrossSectionProperties:
     """
     Calculate hydrostatic properties of a cross-section.
-    
+
     This function computes the submerged area and centroid position for a
     given profile at a specified waterline and heel angle. If a heel angle
     is provided, the profile is first rotated about the longitudinal axis
     (X-axis) before calculating properties.
-    
+
     Args:
         profile: Profile object defining the cross-section geometry
         waterline_z: Z-coordinate of the waterline (default: 0.0)
         heel_angle: Heel angle in degrees (default: 0.0)
                    Positive = starboard down, negative = port down
-    
+
     Returns:
         CrossSectionProperties object containing calculated properties
-        
+
     Example:
         >>> profile = Profile(station=2.0, points=[...])
         >>> props = calculate_section_properties(profile, waterline_z=0.0)
         >>> print(f"Area: {props.area:.3f} m²")
         >>> print(f"Centroid: {props.centroid}")
-        
+
     Note:
         - If heel_angle != 0, a new rotated profile is created (original unchanged)
         - Zero area is returned if profile is entirely above waterline
-        - Uses Profile.calculate_area_below_waterline() and 
+        - Uses Profile.calculate_area_below_waterline() and
           Profile.calculate_centroid_below_waterline() methods
     """
     # Apply heel angle if specified
@@ -122,11 +120,11 @@ def calculate_section_properties(
         working_profile = profile.rotate_about_x(heel_angle)
     else:
         working_profile = profile
-    
+
     # Calculate area and centroid
     area = working_profile.calculate_area_below_waterline(waterline_z)
     centroid_y, centroid_z = working_profile.calculate_centroid_below_waterline(waterline_z)
-    
+
     # Create and return properties object
     return CrossSectionProperties(
         area=area,
@@ -134,71 +132,66 @@ def calculate_section_properties(
         centroid_z=centroid_z,
         station=profile.station,
         waterline_z=waterline_z,
-        heel_angle=heel_angle
+        heel_angle=heel_angle,
     )
 
 
 def calculate_properties_at_heel_angles(
-    profile: Profile,
-    heel_angles: List[float],
-    waterline_z: float = 0.0
+    profile: Profile, heel_angles: List[float], waterline_z: float = 0.0
 ) -> List[CrossSectionProperties]:
     """
     Calculate cross-section properties at multiple heel angles.
-    
+
     This is useful for generating stability curves and understanding how
     the submerged area and centroid position change with heel angle.
-    
+
     Args:
         profile: Profile object defining the cross-section geometry
         heel_angles: List of heel angles in degrees to evaluate
         waterline_z: Z-coordinate of the waterline (default: 0.0)
-    
+
     Returns:
         List of CrossSectionProperties, one for each heel angle
-        
+
     Example:
         >>> profile = Profile(station=2.0, points=[...])
         >>> angles = [0, 5, 10, 15, 20, 25, 30]
         >>> properties = calculate_properties_at_heel_angles(profile, angles)
         >>> for props in properties:
         ...     print(f"Heel {props.heel_angle}°: Area={props.area:.3f}")
-        
+
     Note:
         - Results are returned in the same order as heel_angles
         - This function is optimized for batch calculations
         - Consider plotting area and centroid vs. heel angle for analysis
     """
     properties_list = []
-    
+
     for angle in heel_angles:
         props = calculate_section_properties(profile, waterline_z, angle)
         properties_list.append(props)
-    
+
     return properties_list
 
 
 def calculate_first_moment_of_area(
-    profile: Profile,
-    waterline_z: float = 0.0,
-    heel_angle: float = 0.0,
-    axis: str = 'y'
+    profile: Profile, waterline_z: float = 0.0, heel_angle: float = 0.0, axis: str = "y"
 ) -> float:
     """
     Calculate first moment of area about a specified axis.
-    
+
     The first moment of area is used in calculating centroids and is
     defined as the integral of area times distance from the axis.
-    
+
     Args:
         profile: Profile object defining the cross-section geometry
         waterline_z: Z-coordinate of the waterline (default: 0.0)
         heel_angle: Heel angle in degrees (default: 0.0)
         axis: Axis about which to calculate moment ('y' or 'z')
-    
+
     Returns:
         First moment of area (m³ or consistent units)
-        
+
     Note:
         - First moment about y-axis: Q_y = ∫ z·dA
         - First moment about z-axis: Q_z = ∫ y·dA
@@ -206,15 +199,15 @@ def calculate_first_moment_of_area(
     """
     # Calculate properties
     props = calculate_section_properties(profile, waterline_z, heel_angle)
-    
+
     if props.area == 0:
         return 0.0
-    
+
     # First moment = area * centroid distance
-    if axis == 'y':
+    if axis == "y":
         # Moment about y-axis (using z-coordinate)
         return props.area * props.centroid_z
-    elif axis == 'z':
+    elif axis == "z":
         # Moment about z-axis (using y-coordinate)
         return props.area * props.centroid_y
     else:
@@ -222,80 +215,75 @@ def calculate_first_moment_of_area(
 
 
 def validate_cross_section_properties(
-    props: CrossSectionProperties,
-    tolerance: float = 1e-6
+    props: CrossSectionProperties, tolerance: float = 1e-6
 ) -> Tuple[bool, List[str]]:
     """
     Validate cross-section properties for physical correctness.
-    
+
     Checks for common issues such as:
     - Negative area
     - Centroid above waterline (for submerged area)
     - Unreasonable values
-    
+
     Args:
         props: CrossSectionProperties object to validate
         tolerance: Numerical tolerance for comparisons
-    
+
     Returns:
         Tuple of (is_valid, list_of_issues)
-        
+
     Example:
         >>> is_valid, issues = validate_cross_section_properties(props)
         >>> if not is_valid:
         ...     print("Issues found:", issues)
     """
     issues = []
-    
+
     # Check for negative area
     if props.area < -tolerance:
         issues.append(f"Negative area: {props.area}")
-    
+
     # Check if centroid is above waterline (for non-zero area)
     if props.area > tolerance and props.centroid_z > props.waterline_z + tolerance:
         issues.append(
             f"Centroid above waterline: centroid_z={props.centroid_z}, "
             f"waterline_z={props.waterline_z}"
         )
-    
+
     # Check for NaN or infinite values
     if not np.isfinite(props.area):
         issues.append(f"Non-finite area: {props.area}")
-    
+
     if not np.isfinite(props.centroid_y) or not np.isfinite(props.centroid_z):
-        issues.append(
-            f"Non-finite centroid: ({props.centroid_y}, {props.centroid_z})"
-        )
-    
+        issues.append(f"Non-finite centroid: ({props.centroid_y}, {props.centroid_z})")
+
     # Check heel angle range (typically -90 to +90 degrees)
     if abs(props.heel_angle) > 90 + tolerance:
         issues.append(f"Heel angle out of typical range: {props.heel_angle}°")
-    
+
     is_valid = len(issues) == 0
     return is_valid, issues
 
 
 def compare_properties(
-    props1: CrossSectionProperties,
-    props2: CrossSectionProperties,
-    tolerance: float = 1e-6
+    props1: CrossSectionProperties, props2: CrossSectionProperties, tolerance: float = 1e-6
 ) -> bool:
     """
     Compare two CrossSectionProperties objects for equality within tolerance.
-    
+
     Args:
         props1: First properties object
         props2: Second properties object
         tolerance: Numerical tolerance for floating-point comparisons
-    
+
     Returns:
         True if properties are equal within tolerance
     """
     return (
-        np.isclose(props1.area, props2.area, atol=tolerance) and
-        np.isclose(props1.centroid_y, props2.centroid_y, atol=tolerance) and
-        np.isclose(props1.centroid_z, props2.centroid_z, atol=tolerance) and
-        np.isclose(props1.station, props2.station, atol=tolerance) and
-        np.isclose(props1.waterline_z, props2.waterline_z, atol=tolerance) and
-        np.isclose(props1.heel_angle, props2.heel_angle, atol=tolerance)
+        np.isclose(props1.area, props2.area, atol=tolerance)
+        and np.isclose(props1.centroid_y, props2.centroid_y, atol=tolerance)
+        and np.isclose(props1.centroid_z, props2.centroid_z, atol=tolerance)
+        and np.isclose(props1.station, props2.station, atol=tolerance)
+        and np.isclose(props1.waterline_z, props2.waterline_z, atol=tolerance)
+        and np.isclose(props1.heel_angle, props2.heel_angle, atol=tolerance)
     )

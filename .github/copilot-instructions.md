@@ -52,8 +52,11 @@ The application calculates:
   - Input/output handling
 - Use type hints for better code clarity
 - Document formulas and calculation steps clearly
+- Please write Unit Tests for new code where is applicacble
+- Please run the linter (flake8) and formatter (black) on the code before submission using make lint and make format commands.
+
 
 # Planning and Tasks
 - For every task, please create a detailed paln before impelementation.
 - Break down complex calculations into smaller, manageable functions.
-- Write all atask to be implemented in a tasks.md file and get approval before starting coding.
+- Write all task to be implemented in a tasks.md file and get approval before starting coding.

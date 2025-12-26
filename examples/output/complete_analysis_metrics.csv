@@ -1,0 +1,15 @@
+# Generated: 2025-12-26 02:56:37
+# Kayak Calculation Tool - Data Export
+#
+# Export Type: Stability Metrics
+# Waterline Z: 0.000000 m
+# CG Position: LCG=2.420, VCG=-0.165, TCG=0.000 m
+#
+Metric,Value,Unit
+GM (Metacentric Height),-2.156888,m
+Maximum GZ,0.113674,m
+Angle of Maximum GZ,80.000000,degrees
+Range Positive Stability (Min),0.000000,degrees
+Range Positive Stability (Max),90.000000,degrees
+Angle of Vanishing Stability,90.000000,degrees
+Dynamic Stability (Area Under Curve),0.077761,m·rad

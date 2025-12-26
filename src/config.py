@@ -41,14 +41,14 @@ DEFAULT_DATA_FORMAT = "json"  # Options: 'json', 'csv'
 class Config:
     """
     Configuration class for application settings.
-    
+
     Can be subclassed or modified for specific use cases.
     """
-    
+
     def __init__(self):
         """
         Initialize configuration with default values.
-        
+
         Sets up default values for water density, gravity, integration settings,
         and analysis parameters.
         """
@@ -58,11 +58,11 @@ class Config:
         self.num_stations = DEFAULT_NUM_STATIONS
         self.heel_angles = DEFAULT_HEEL_ANGLES
         self.interpolation_method = DEFAULT_INTERPOLATION_METHOD
-        
+
     def use_freshwater(self):
         """Switch to freshwater density."""
         self.water_density = FRESHWATER_DENSITY
-        
+
     def use_seawater(self):
         """Switch to seawater density."""
         self.water_density = WATER_DENSITY

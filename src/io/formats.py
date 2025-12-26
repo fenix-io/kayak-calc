@@ -5,38 +5,38 @@ This module defines the standard data formats supported by the kayak calculation
 tool, including JSON and CSV format specifications.
 """
 
-from typing import Dict, List, Any
+from typing import Dict, Any
 
 # Supported file formats
-SUPPORTED_FORMATS = ['json', 'csv']
+SUPPORTED_FORMATS = ["json", "csv"]
 
 # Metadata field names
 METADATA_FIELDS = {
-    'name': str,
-    'description': str,
-    'units': str,
-    'coordinate_system': str,
-    'water_density': float,
-    'length': float,
-    'beam': float,
+    "name": str,
+    "description": str,
+    "units": str,
+    "coordinate_system": str,
+    "water_density": float,
+    "length": float,
+    "beam": float,
 }
 
 # Recognized units
-RECOGNIZED_LENGTH_UNITS = ['m', 'cm', 'mm', 'ft', 'in']
+RECOGNIZED_LENGTH_UNITS = ["m", "cm", "mm", "ft", "in"]
 
 # Recognized coordinate systems
 RECOGNIZED_COORD_SYSTEMS = [
-    'centerline_origin',
-    'bow_origin',
-    'stern_origin',
-    'midship_origin',
+    "centerline_origin",
+    "bow_origin",
+    "stern_origin",
+    "midship_origin",
 ]
 
 # Point field names
-POINT_FIELDS = ['x', 'y', 'z']
+POINT_FIELDS = ["x", "y", "z"]
 
-# Profile field names  
-PROFILE_FIELDS = ['station', 'points']
+# Profile field names
+PROFILE_FIELDS = ["station", "points"]
 
 # Minimum requirements
 MIN_POINTS_PER_PROFILE = 3
@@ -58,7 +58,7 @@ JSON_SCHEMA = {
                 "water_density": {"type": "number", "minimum": 0},
                 "length": {"type": "number", "minimum": 0},
                 "beam": {"type": "number", "minimum": 0},
-            }
+            },
         },
         "profiles": {
             "type": "array",
@@ -78,20 +78,20 @@ JSON_SCHEMA = {
                                 "x": {"type": "number"},
                                 "y": {"type": "number"},
                                 "z": {"type": "number"},
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
+                            },
+                        },
+                    },
+                },
+            },
+        },
+    },
 }
 
 
 def get_json_example() -> Dict[str, Any]:
     """
     Get an example of a valid JSON hull definition.
-    
+
     Returns:
         Dictionary representing a valid JSON hull file
     """
@@ -103,7 +103,7 @@ def get_json_example() -> Dict[str, Any]:
             "coordinate_system": "centerline_origin",
             "water_density": 1025.0,
             "length": 5.0,
-            "beam": 0.6
+            "beam": 0.6,
         },
         "profiles": [
             {
@@ -114,7 +114,7 @@ def get_json_example() -> Dict[str, Any]:
                     {"x": 0.0, "y": 0.3, "z": 0.2},
                     {"x": 0.0, "y": -0.3, "z": -0.1},
                     {"x": 0.0, "y": 0.3, "z": -0.1},
-                ]
+                ],
             },
             {
                 "station": 2.5,
@@ -124,7 +124,7 @@ def get_json_example() -> Dict[str, Any]:
                     {"x": 2.5, "y": 0.3, "z": 0.1},
                     {"x": 2.5, "y": -0.3, "z": -0.2},
                     {"x": 2.5, "y": 0.3, "z": -0.2},
-                ]
+                ],
             },
             {
                 "station": 5.0,
@@ -134,9 +134,9 @@ def get_json_example() -> Dict[str, Any]:
                     {"x": 5.0, "y": 0.3, "z": 0.2},
                     {"x": 5.0, "y": -0.3, "z": -0.1},
                     {"x": 5.0, "y": 0.3, "z": -0.1},
-                ]
-            }
-        ]
+                ],
+            },
+        ],
     }
 
 
@@ -144,35 +144,35 @@ def get_json_example() -> Dict[str, Any]:
 
 # Format A: station, y, z (x coordinate derived from station)
 CSV_FORMAT_A = {
-    'name': 'station_yz',
-    'columns': ['station', 'y', 'z'],
-    'description': 'Station number, Y coordinate, Z coordinate (X derived from station)',
+    "name": "station_yz",
+    "columns": ["station", "y", "z"],
+    "description": "Station number, Y coordinate, Z coordinate (X derived from station)",
 }
 
 # Format B: x, y, z (station derived from x values)
 CSV_FORMAT_B = {
-    'name': 'xyz',
-    'columns': ['x', 'y', 'z'],
-    'description': 'X coordinate, Y coordinate, Z coordinate (station = X)',
+    "name": "xyz",
+    "columns": ["x", "y", "z"],
+    "description": "X coordinate, Y coordinate, Z coordinate (station = X)",
 }
 
 CSV_FORMATS = {
-    'station_yz': CSV_FORMAT_A,
-    'xyz': CSV_FORMAT_B,
+    "station_yz": CSV_FORMAT_A,
+    "xyz": CSV_FORMAT_B,
 }
 
 
-def get_csv_example(format_type: str = 'xyz') -> str:
+def get_csv_example(format_type: str = "xyz") -> str:
     """
     Get an example CSV string for the specified format.
-    
+
     Args:
         format_type: 'xyz' or 'station_yz'
-        
+
     Returns:
         CSV string example
     """
-    if format_type == 'xyz':
+    if format_type == "xyz":
         return """# Example kayak hull geometry
 # Units: meters
 # Coordinate system: centerline_origin
@@ -193,7 +193,7 @@ x,y,z
 5.0,-0.3,-0.1
 5.0,0.3,-0.1
 """
-    elif format_type == 'station_yz':
+    elif format_type == "station_yz":
         return """# Example kayak hull geometry
 # Units: meters
 # Coordinate system: centerline_origin

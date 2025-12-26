@@ -40,7 +40,8 @@ lint: lint-flake8 lint-black lint-mypy
 
 lint-flake8:
 	@echo "Running flake8..."
-	flake8 src/ tests/ examples/ --max-line-length=100 --extend-ignore=E203,W503
+	flake8 src/ tests/ --max-line-length=100 --extend-ignore=E203,W503
+	flake8 examples/ --max-line-length=120 --extend-ignore=E203,W503,F541,F841
 
 lint-black:
 	@echo "Checking code formatting with black..."

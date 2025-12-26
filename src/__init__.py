@@ -1,7 +1,7 @@
 """
 Kayak Calculation Tool (kayak)
 
-A Python application for calculating hydrostatic parameters and 
+A Python application for calculating hydrostatic parameters and
 stability characteristics of kayaks.
 """
 

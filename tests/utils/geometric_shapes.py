@@ -9,15 +9,10 @@ import numpy as np
 from src.geometry import Point3D, Profile, KayakHull
 
 
-def create_box_hull(
-    length: float, 
-    width: float, 
-    depth: float, 
-    num_stations: int = 5
-) -> KayakHull:
+def create_box_hull(length: float, width: float, depth: float, num_stations: int = 5) -> KayakHull:
     """
     Create a rectangular box hull for testing.
-    
+
     Parameters
     ----------
     length : float
@@ -28,12 +23,12 @@ def create_box_hull(
         Depth of the box (z-direction, positive downward from waterline)
     num_stations : int
         Number of transverse stations along the length
-        
+
     Returns
     -------
     KayakHull
         Hull with rectangular box geometry
-        
+
     Notes
     -----
     - Origin is at (0, 0, 0) - typically at midship, centerline, waterline
@@ -45,28 +40,25 @@ def create_box_hull(
     hull = KayakHull()
     stations = np.linspace(0, length, num_stations)
     half_width = width / 2.0
-    
+
     for station in stations:
         points = [
-            Point3D(station, -half_width, 0.0),      # Port waterline
-            Point3D(station, -half_width, -depth),   # Port bottom
-            Point3D(station, half_width, -depth),    # Starboard bottom
-            Point3D(station, half_width, 0.0),       # Starboard waterline
+            Point3D(station, -half_width, 0.0),  # Port waterline
+            Point3D(station, -half_width, -depth),  # Port bottom
+            Point3D(station, half_width, -depth),  # Starboard bottom
+            Point3D(station, half_width, 0.0),  # Starboard waterline
         ]
         hull.add_profile_from_points(station, points)
-    
+
     return hull
 
 
 def create_cylindrical_hull(
-    length: float,
-    radius: float,
-    num_stations: int = 11,
-    num_points_per_profile: int = 21
+    length: float, radius: float, num_stations: int = 11, num_points_per_profile: int = 21
 ) -> KayakHull:
     """
     Create a cylindrical hull with circular cross-sections.
-    
+
     Parameters
     ----------
     length : float
@@ -77,12 +69,12 @@ def create_cylindrical_hull(
         Number of transverse stations along the length
     num_points_per_profile : int
         Number of points defining each circular profile
-        
+
     Returns
     -------
     KayakHull
         Hull with cylindrical geometry
-        
+
     Notes
     -----
     - Cylinder axis is along x-axis
@@ -95,17 +87,17 @@ def create_cylindrical_hull(
     """
     hull = KayakHull()
     stations = np.linspace(0, length, num_stations)
-    
+
     for station in stations:
         profile = create_circular_profile(
             center_x=station,
             center_y=0.0,
             center_z=-radius,
             radius=radius,
-            num_points=num_points_per_profile
+            num_points=num_points_per_profile,
         )
         hull.add_profile_from_points(station, profile.points)
-    
+
     return hull
 
 
@@ -114,11 +106,11 @@ def create_conical_hull(
     base_radius: float,
     apex_radius: float = 0.0,
     num_stations: int = 11,
-    num_points_per_profile: int = 21
+    num_points_per_profile: int = 21,
 ) -> KayakHull:
     """
     Create a conical or tapered hull with circular cross-sections.
-    
+
     Parameters
     ----------
     length : float
@@ -131,12 +123,12 @@ def create_conical_hull(
         Number of transverse stations along the length
     num_points_per_profile : int
         Number of points defining each circular profile
-        
+
     Returns
     -------
     KayakHull
         Hull with conical/tapered geometry
-        
+
     Notes
     -----
     - Cone axis is along x-axis
@@ -151,40 +143,34 @@ def create_conical_hull(
     """
     hull = KayakHull()
     stations = np.linspace(0, length, num_stations)
-    
+
     for station in stations:
         # Linear interpolation of radius along length
         t = station / length if length > 0 else 0
         radius = base_radius * (1 - t) + apex_radius * t
-        
+
         if radius > 0:
             profile = create_circular_profile(
                 center_x=station,
                 center_y=0.0,
                 center_z=-radius,
                 radius=radius,
-                num_points=num_points_per_profile
+                num_points=num_points_per_profile,
             )
             hull.add_profile_from_points(station, profile.points)
         else:
             # At apex with zero radius, add single point
-            hull.add_profile_from_points(
-                station, 
-                [Point3D(station, 0.0, 0.0)]
-            )
-    
+            hull.add_profile_from_points(station, [Point3D(station, 0.0, 0.0)])
+
     return hull
 
 
 def create_wedge_hull(
-    length: float, 
-    width: float, 
-    depth: float, 
-    num_stations: int = 5
+    length: float, width: float, depth: float, num_stations: int = 5
 ) -> KayakHull:
     """
     Create a wedge-shaped hull with triangular cross-section.
-    
+
     Parameters
     ----------
     length : float
@@ -195,12 +181,12 @@ def create_wedge_hull(
         Depth from waterline to keel (z-direction)
     num_stations : int
         Number of transverse stations along the length
-        
+
     Returns
     -------
     KayakHull
         Hull with triangular cross-section
-        
+
     Notes
     -----
     - Triangular profile: port waterline, keel, starboard waterline
@@ -210,28 +196,24 @@ def create_wedge_hull(
     hull = KayakHull()
     stations = np.linspace(0, length, num_stations)
     half_width = width / 2.0
-    
+
     for station in stations:
         points = [
-            Point3D(station, -half_width, 0.0),   # Port waterline
-            Point3D(station, 0.0, -depth),         # Keel
-            Point3D(station, half_width, 0.0),    # Starboard waterline
+            Point3D(station, -half_width, 0.0),  # Port waterline
+            Point3D(station, 0.0, -depth),  # Keel
+            Point3D(station, half_width, 0.0),  # Starboard waterline
         ]
         hull.add_profile_from_points(station, points)
-    
+
     return hull
 
 
 def create_circular_profile(
-    center_x: float,
-    center_y: float,
-    center_z: float,
-    radius: float,
-    num_points: int = 21
+    center_x: float, center_y: float, center_z: float, radius: float, num_points: int = 21
 ) -> Profile:
     """
     Create a circular profile in the y-z plane at given x position.
-    
+
     Parameters
     ----------
     center_x : float
@@ -244,12 +226,12 @@ def create_circular_profile(
         Radius of the circle
     num_points : int
         Number of points to define the circle
-        
+
     Returns
     -------
     Profile
         Profile with circular shape
-        
+
     Notes
     -----
     - Points go counterclockwise starting from starboard (y > 0)
@@ -261,12 +243,12 @@ def create_circular_profile(
     # Go counterclockwise: starboard → top → port → bottom → starboard
     angles = np.linspace(0, 2 * np.pi, num_points, endpoint=False)
     points = []
-    
+
     for angle in angles:
         y = center_y + radius * np.cos(angle)
         z = center_z + radius * np.sin(angle)
         points.append(Point3D(center_x, y, z))
-    
+
     return Profile(center_x, points)
 
 
@@ -276,11 +258,11 @@ def create_elliptical_profile(
     center_z: float,
     semi_major: float,
     semi_minor: float,
-    num_points: int = 21
+    num_points: int = 21,
 ) -> Profile:
     """
     Create an elliptical profile in the y-z plane at given x position.
-    
+
     Parameters
     ----------
     center_x : float
@@ -295,12 +277,12 @@ def create_elliptical_profile(
         Semi-minor axis length (vertical, z-direction)
     num_points : int
         Number of points to define the ellipse
-        
+
     Returns
     -------
     Profile
         Profile with elliptical shape
-        
+
     Notes
     -----
     - Points are distributed uniformly by angle (not arc length)
@@ -309,10 +291,10 @@ def create_elliptical_profile(
     """
     angles = np.linspace(0, 2 * np.pi, num_points, endpoint=False)
     points = []
-    
+
     for angle in angles:
         y = center_y + semi_major * np.cos(angle)
         z = center_z + semi_minor * np.sin(angle)
         points.append(Point3D(center_x, y, z))
-    
+
     return Profile(center_x, points)
