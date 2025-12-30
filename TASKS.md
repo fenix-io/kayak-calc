@@ -493,6 +493,17 @@
   - Benefits of profile-only approach (no explicit bow/stern)
 - **Build Status:** Documentation builds successfully (110 pre-existing warnings)
 
+
+
+### 9.7 Add mor point to bow and stern
+Current definition of bow and stern fall short to define a good shape of the hull with more control about the rocker and the depth on diferent points. 
+ - [ ] Make bow and stern definitions an array of points an then interpolate the points on extreme stations with the corresponding points on the bow and stern (point count must match the the point count on the stations). One possible solution to the interpolation issues can be: points on the bow and stern be duplicated to both sides of the bow/stern half real size (for example 2 centimeter wood, aluminium or plastic piece can be a real bow or stern size, and points are placed 1 centimeter from the center line). The point in the center line should be the point where the rocker of the bow/stern start rising.
+ 
+### 9.8 Review tests and docs ✅
+After adding bow and stern to the design we need to check all tests again
+- [ ] Check all test and fix the possible issues
+- [ ] Systematically solve all mypy issues
+- [ ] Check all documents, and verify that all of them are up to date.
 ---
 
 ## Phase 10: Optimization and Enhancement

@@ -10,7 +10,7 @@ import os
 # This suggests the hull data may be for a scale model or measurements need verification
 # Using appropriate masses for this hull capacity
 
-waterline_z = 0.110 
+waterline_z = 0.040 
 script_dir = os.path.dirname(os.path.abspath(__file__))
 
 # Load your hull data
@@ -45,7 +45,7 @@ plt.show()
 # Option A: Scaled masses matching hull capacity (CURRENT APPROACH)
 components = [
     calculate_hull_cg_mass_component(hull, hull_mass=12.0),
-    MassComponent(name="payload", mass=100.0, x=2.6, y=0.0, z=0.30, description="Payload/paddler"),
+    # MassComponent(name="payload", mass=100.0, x=2.6, y=0.0, z=0.30, description="Payload/paddler"),
 ]
 
 # Calculate CG automatically
