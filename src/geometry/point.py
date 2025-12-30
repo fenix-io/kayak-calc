@@ -83,13 +83,18 @@ class Point3D:
         This is used for simulating heel angle in kayak stability calculations.
         The X-axis is the longitudinal axis along the kayak.
 
+        Convention: positive angle = starboard down (heel to starboard)
+        - Uses negative of angle for rotation to match naval architecture convention
+        - With right-hand rule, negative rotation makes starboard side go down
+
         Args:
             angle_deg: Rotation angle in degrees (positive = starboard down)
 
         Returns:
             New rotated Point3D
         """
-        angle_rad = np.radians(angle_deg)
+        # Negate angle to match convention: positive angle = starboard down
+        angle_rad = np.radians(-angle_deg)
         cos_a = np.cos(angle_rad)
         sin_a = np.sin(angle_rad)
 

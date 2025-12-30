@@ -48,10 +48,10 @@ class TestPoint3D:
     def test_rotate_x(self):
         """Test rotation around X-axis (heel)."""
         p = Point3D(0.0, 1.0, 0.0)
-        p_rotated = p.rotate_x(90.0)  # 90 degrees
+        p_rotated = p.rotate_x(90.0)  # 90 degrees (starboard down)
         assert np.isclose(p_rotated.x, 0.0)
         assert np.isclose(p_rotated.y, 0.0)
-        assert np.isclose(p_rotated.z, 1.0)
+        assert np.isclose(p_rotated.z, -1.0)  # Point on port side goes down
 
     def test_rotate_y(self):
         """Test rotation around Y-axis."""
@@ -280,16 +280,17 @@ class TestProfile:
         points = [Point3D(1.0, 0.0, 0.0), Point3D(1.0, 1.0, 0.0)]
         profile = Profile(station=1.0, points=points)
 
-        # Rotate 90 degrees
+        # Rotate 90 degrees (starboard down)
         rotated = profile.rotate_about_x(90.0)
 
         # Check that points are rotated correctly
         assert rotated.station == 1.0
         assert rotated.num_points == 2
 
-        # Second point should now be at (1, 0, 1) after 90 degree rotation
+        # Second point at (1, 1, 0) should become (1, 0, -1) after 90° starboard heel
+        # Port side (positive y) goes down (negative z)
         assert np.isclose(rotated.points[1].y, 0.0)
-        assert np.isclose(rotated.points[1].z, 1.0)
+        assert np.isclose(rotated.points[1].z, -1.0)
 
     def test_translate(self):
         """Test profile translation."""

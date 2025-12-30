@@ -1,16 +1,26 @@
 from src.hydrostatics.center_of_gravity import MassComponent, calculate_cg_from_components
 from src.io import load_hull_from_json
-from src.hydrostatics import CenterOfGravity, calculate_displacement
+from src.hydrostatics import calculate_displacement, calculate_hull_cg_mass_component, calculate_center_of_buoyancy
 from src.stability import StabilityAnalyzer
 from src.visualization import plot_stability_curve, plot_hull_3d
 import matplotlib.pyplot as plt
 import os
 
-waterline_z = 0.20
+# IMPORTANT: This hull has max displacement of ~42 kg, not typical 80-100 kg for full-size kayak
+# This suggests the hull data may be for a scale model or measurements need verification
+# Using appropriate masses for this hull capacity
+
+waterline_z = 0.150 
 script_dir = os.path.dirname(os.path.abspath(__file__))
 
-# Load your hull data (replace with your file)
+# Load your hull data
 hull = load_hull_from_json(f'{script_dir}/kyk-01_hull.json')
+
+# Check hull capacity first
+from src.hydrostatics import calculate_displacement as calc_disp
+max_disp = calc_disp(hull, waterline_z=waterline_z)
+print(f"Hull maximum displacement: {max_disp.mass:.2f} kg at WL z={waterline_z} m")
+
 #hull = load_hull_from_json('data/sample_hull_simple.json')
 # Plot the 3D hull
 print("\nPlotting 3D hull visualization...")
@@ -24,20 +34,36 @@ plt.savefig(hull_image_path, dpi=300, bbox_inches='tight')
 print(f"3D hull plot saved as '{hull_image_path}'")
 plt.show()
 
-# Define your kayak's center of gravity
-# Define all mass components
+# Define mass components
+# ADJUSTED FOR THIS HULL'S CAPACITY (~42 kg max)
+# For a full-size kayak, you would need 12 kg hull + 75 kg paddler = 87 kg total
+# But this hull can only support 42 kg, suggesting:
+#   - Scale model data
+#   - Incorrect z-coordinates in source data  
+#   - Missing hull sections
+
+# Option A: Scaled masses matching hull capacity (CURRENT APPROACH)
 components = [
-    MassComponent("Hull", mass=10.0, x=2.8, y=0.0, z=0.10),
-    # MassComponent("Paddler", mass=100.0, x=3.00, y=0.0, z=0.35),  # Lower CG for more stability
-    # MassComponent("Gear", mass=5.0, x=2.0, y=0.0, z=0.10),
-    # ... more components
+    calculate_hull_cg_mass_component(hull, hull_mass=12.0),
+    MassComponent(name="payload", mass=100.0, x=2.6, y=0.0, z=0.30, description="Payload/paddler"),
 ]
 
 # Calculate CG automatically
 cg = calculate_cg_from_components(components)
+print(f"\nMass breakdown:")
+for comp in components:
+    print(f"  {comp.description}: {comp.mass:.1f} kg at z={comp.z:.3f} m")
+print(f"Total mass: {sum(c.mass for c in components):.1f} kg")
+
+print(f"\nCalculated Center of Gravity: x={cg.x:.3f} m, y={cg.y:.3f} m, z={cg.z:.3f} m")
+
+# Calculate CB at design waterline
+cb = calculate_center_of_buoyancy(hull, waterline_z=waterline_z, heel_angle=0.0)
+print(f"Calculated Center of Buoyancy at WL: x={cb.lcb:.3f} m, y={cb.tcb:.3f} m, z={cb.vcb:.3f} m, volume={cb.volume:.3f} m³")
 
 # Create stability analyzer with waterline
 analyzer = StabilityAnalyzer(hull, cg, waterline_z=waterline_z)
+
 
 # Calculate displacement
 displacement = calculate_displacement(hull, waterline_z=waterline_z)

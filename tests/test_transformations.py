@@ -45,8 +45,8 @@ class TestHeelTransformations:
         heeled = apply_heel(point, 90.0)
 
         assert heeled.x == pytest.approx(1.0)
-        # 90° starboard down: z rotates to -y direction
-        assert heeled.y == pytest.approx(-1.0, abs=1e-10)
+        # 90° starboard down: z rotates to +y direction (starboard)
+        assert heeled.y == pytest.approx(1.0, abs=1e-10)
         assert heeled.z == pytest.approx(0.0, abs=1e-10)
 
     def test_apply_heel_with_reference(self):
@@ -56,11 +56,12 @@ class TestHeelTransformations:
 
         heeled = apply_heel(point, 90.0, reference)
 
-        # After rotating 90° about (2, 0, 0), point (2, 1, 0.5)
-        # relative position (0, 1, 0.5) becomes (0, -0.5, 1)
+        # After rotating 90° starboard about (2, 0, 0), point (2, 1, 0.5)
+        # relative position (0, 1, 0.5) becomes (0, 0.5, -1)
+        # Port side (y=1) stays on port, but goes down (z decreases)
         assert heeled.x == pytest.approx(2.0)
-        assert heeled.y == pytest.approx(-0.5, abs=1e-10)
-        assert heeled.z == pytest.approx(1.0, abs=1e-10)
+        assert heeled.y == pytest.approx(0.5, abs=1e-10)
+        assert heeled.z == pytest.approx(-1.0, abs=1e-10)
 
     def test_apply_heel_to_profile(self):
         """Test heeling entire profile."""
@@ -467,8 +468,8 @@ class TestEdgeCases:
         heeled = apply_heel(point, -90.0)
 
         assert heeled.x == pytest.approx(1.0)
-        # -90° port down: z rotates to +y direction
-        assert heeled.y == pytest.approx(1.0, abs=1e-10)
+        # -90° port down: z rotates to -y direction (port side)
+        assert heeled.y == pytest.approx(-1.0, abs=1e-10)
         assert heeled.z == pytest.approx(0.0, abs=1e-10)
 
     def test_waterline_at_different_levels(self):
@@ -560,10 +561,11 @@ class TestRotationMatrixProperties:
         dy = heeled.y - point.y
         dz = heeled.z - point.z
 
-        # For small angle θ in radians: y_new ≈ y - z*θ, z_new ≈ z + y*θ
+        # With negated angle for starboard down convention:
+        # For small angle θ in radians: y_new ≈ y + z*θ, z_new ≈ z - y*θ
         angle_rad = np.deg2rad(angle_degrees)
-        expected_dy = -point.z * angle_rad
-        expected_dz = point.y * angle_rad
+        expected_dy = point.z * angle_rad
+        expected_dz = -point.y * angle_rad
 
         assert dy == pytest.approx(expected_dy, abs=1e-6)
         assert dz == pytest.approx(expected_dz, abs=1e-6)
