@@ -375,6 +375,74 @@ The hull is typically assumed to be symmetric about the centerline (y=0):
 - For each point at `(x, y, z)` with `y > 0`, there should be a corresponding point at `(x, -y, z)`
 - Points exactly on the centerline have `y = 0`
 
+### Profile Point Ordering
+
+**Critical for accurate calculations:** Points within each profile must be ordered consistently.
+
+**Recommended ordering (port → keel → starboard):**
+
+1. Start at **port side** (y < 0) at deck/waterline level
+2. Progress **downward** along port side  
+3. Continue through **keel** (y = 0, lowest point)
+4. Progress **upward** along starboard side
+5. End at **starboard side** (y > 0) at deck/waterline level
+
+**Example point sequence for a kayak profile:**
+
+```
+Point 0: Port deck edge      (x, y=-0.30, z=0.20)   ← Start here
+Point 1: Port chine           (x, y=-0.28, z=0.00)   ↓
+Point 2: Port bilge           (x, y=-0.25, z=-0.15)  ↓
+Point 3: Keel (centerline)    (x, y=0.00,  z=-0.20)  ← Lowest point
+Point 4: Starboard bilge      (x, y=0.25,  z=-0.15)  ↑
+Point 5: Starboard chine      (x, y=0.28,  z=0.00)   ↑
+Point 6: Starboard deck edge  (x, y=0.30,  z=0.20)   ← End here
+```
+
+**Why consistent ordering matters:**
+
+- Ensures correct cross-sectional area calculations (shoelace formula)
+- Maintains proper waterline intersection detection
+- Enables accurate longitudinal interpolation between profiles
+- Prevents surface normal reversals
+- Avoids twisted interpolated sections
+
+**Important:** Use the **same traversal direction** for **ALL** profiles. Mixing directions (e.g., port→starboard on one profile, starboard→port on another) will cause calculation errors.
+
+### Bow and Stern Positions
+
+**Important:** Modern hull files do **not** require explicit `bow` or `stern` entries.
+
+**How bow/stern are determined:**
+
+- **Bow**: Automatically derived from the **first profile** (lowest x-coordinate station)
+- **Stern**: Automatically derived from the **last profile** (highest x-coordinate station)
+- The software extracts bow/stern positions from profile endpoints
+
+**Example:**
+
+```json
+{
+  "profiles": [
+    {"station": 0.0, "points": [...]},    ← First profile = BOW
+    {"station": 2.5, "points": [...]},    ← Middle profiles
+    {"station": 5.0, "points": [...]}     ← Last profile = STERN
+  ]
+}
+```
+
+After loading, bow and stern are automatically available via hull attributes.
+
+**For tapered bow/stern:**
+- First/last profiles should have points that converge toward centerline
+- This naturally defines the tapered end geometry
+- No special apex point needed
+
+**Benefits of this approach:**
+- Simpler data format (fewer fields to specify)
+- Eliminates potential inconsistencies
+- Profiles already contain all necessary geometric information
+
 ---
 
 ## Examples

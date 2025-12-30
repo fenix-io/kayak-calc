@@ -64,11 +64,20 @@ JSON Format
            {"x": 0.0, "y": -0.3, "z": -0.2},
            {"x": 0.0, "y": 0.3, "z": -0.2}
          ]
+       },
+       {
+         "station": 5.0,
+         "points": [
+           {"x": 5.0, "y": -0.25, "z": -0.15},
+           {"x": 5.0, "y": 0.25, "z": -0.15}
+         ]
        }
-     ],
-     "bow": {"x": 2.5, "y": 0.0, "z": 0.1},
-     "stern": {"x": -2.5, "y": 0.0, "z": 0.1}
+     ]
    }
+
+.. note::
+   The hull geometry is now defined entirely by the ``profiles`` array. 
+   Bow and stern positions are automatically derived from the first and last profiles.
 
 CSV Format
 ~~~~~~~~~~

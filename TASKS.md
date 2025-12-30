@@ -474,9 +474,24 @@
   - Comprehensive test coverage (100% pass rate)
 
 ### 9.6 Input Format Documentation
-- [ ] Update USER_GUIDE.md and QUICKREF.md so the JSON hull example no longer includes the removed `bow`/`stern` entries and instead emphasizes that profiles supply the complete geometry.
-- [ ] Spell out the preferred point ordering for each profile (e.g., port waterline → keel → starboard waterline, consistent traversal direction) so users know how to list coordinates without guessing.
-- [ ] Add a short note explaining how bow/stern positions are derived from profile data so readers understand why the explicit fields disappeared.
+- [x] Update USER_GUIDE.md and QUICKREF.md so the JSON hull example no longer includes the removed `bow`/`stern` entries and instead emphasizes that profiles supply the complete geometry.
+- [x] Spell out the preferred point ordering for each profile (e.g., port waterline → keel → starboard waterline, consistent traversal direction) so users know how to list coordinates without guessing.
+- [x] Add a short note explaining how bow/stern positions are derived from profile data so readers understand why the explicit fields disappeared.
+- **Status:** Complete - All documentation updated with clear format guidance
+- **Files Updated:**
+  - `docs/getting_started.rst` - Removed bow/stern from JSON example, added note
+  - `USER_GUIDE.md` - Enhanced point ordering section, added bow/stern derivation section
+  - `QUICKREF.md` - Expanded point ordering guidance, added hull geometry notes
+  - `INPUT_DATA_FORMATS.md` - Added comprehensive sections on point ordering and bow/stern derivation
+  - `data/README.md` - Added point ordering and bow/stern notes
+- **Documentation:** Complete in `docs/PHASE9_TASK9.6_PLAN.md`
+- **Key Additions:**
+  - Detailed point ordering conventions (port → keel → starboard)
+  - Clear explanation of bow/stern automatic derivation from first/last profiles
+  - Visual examples of proper point sequences
+  - Rationale for why consistent ordering matters
+  - Benefits of profile-only approach (no explicit bow/stern)
+- **Build Status:** Documentation builds successfully (110 pre-existing warnings)
 
 ---
 

@@ -178,9 +178,21 @@ generate_stability_report(
 }
 ```
 
-> Bow and stern positions are now derived from the extremal profiles, so you only need to define the station profiles themselves.
+**Hull Geometry Notes:**
 
-**Profile Point Order:** Walk each profile boundary from the port waterline down to the keel and back up to the starboard waterline (including centerline or deck points along the way). Keeping the same traversal direction across all profiles prevents interpolated sections from twisting.
+1. **No bow/stern entries needed:** The hull geometry is entirely defined by the `profiles` array. Bow and stern positions are automatically derived from the first and last profiles.
+
+2. **Profile Point Ordering:** List points in a consistent traversal order for all profiles:
+   - **Recommended:** Port side (y < 0) → Keel (y = 0) → Starboard side (y > 0)
+   - Walk the profile from port waterline/deck, down through the port side, across the keel, up through the starboard side, to starboard waterline/deck
+   - **Critical:** Use the same direction for every profile to ensure proper interpolation
+
+**Example Point Order:**
+```
+Port deck (y=-0.3, z=0.0)  →  Port bilge (y=-0.3, z=-0.2)  →  
+Keel (y=0.0, z=-0.25)  →  Starboard bilge (y=0.3, z=-0.2)  →  
+Starboard deck (y=0.3, z=0.0)
+```
 
 ### CSV Hull Format
 

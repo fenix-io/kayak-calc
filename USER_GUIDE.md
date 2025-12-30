@@ -310,7 +310,39 @@ Create a file `my_kayak.json`:
 }
 ```
 
-> There is no longer a `bow`/`stern` object in the JSON or CSV input. The loader derives those end points from the extrema of the profiles, so the topology is fully captured by the `profiles` array alone.
+### Bow and Stern Positions
+
+**Important:** The hull geometry is now defined entirely by the `profiles` array. There is **no need** for explicit `bow` or `stern` entries in the JSON format.
+
+**How bow/stern positions are determined:**
+- The **bow** is derived from the **first profile** (lowest x-coordinate)
+- The **stern** is derived from the **last profile** (highest x-coordinate)  
+- The software automatically extracts the bow/stern positions from these profile endpoints
+
+**Example:**
+```python
+# Your profiles define the complete hull:
+profiles = [
+    {"station": 0.0, "points": [...]},    # First profile = BOW
+    {"station": 2.5, "points": [...]},    # Middle profile
+    {"station": 5.0, "points": [...]}     # Last profile = STERN
+]
+
+# After loading, bow and stern are automatically available:
+hull = load_hull_from_json('my_kayak.json')
+print(f"Bow at x = {hull.bow.x}")    # x = 0.0 (from first profile)
+print(f"Stern at x = {hull.stern.x}")  # x = 5.0 (from last profile)
+```
+
+**For kayaks that taper to a point:**
+- The first/last profile should have points that converge toward the centerline
+- This defines the tapered bow/stern shape
+- No special apex point is needed - the profile itself defines the end geometry
+
+**Why this approach:**
+- Simpler data format (one less thing to specify)
+- Eliminates potential inconsistencies between bow/stern points and profile data
+- The profiles already contain all geometric information needed
 
 ### Loading the Hull
 
@@ -327,7 +359,7 @@ print(f"Bow at: {hull.bow}")
 print(f"Stern at: {hull.stern}")
 ```
 
-> Even without explicit `bow`/`stern` entries, the loader still exposes those attributes because it infers them from the profile endpoints.
+**Note:** Even without explicit `bow`/`stern` entries in the JSON file, the `hull` object still provides these attributes - they are automatically inferred from the first and last profiles.
 
 ### CSV Format Example
 
@@ -369,9 +401,35 @@ hull = load_hull_from_csv('my_kayak.csv')
    - Points should go around the perimeter consistently
 
 3. **Point Ordering**
-  - Preferred sequencing is to walk the hull boundary from the port waterline, down along one side to the keel, across the bottom, and then up to the starboard waterline (include any centerline or deck points as needed).
-  - Use the same traversal direction for every profile (clockwise or counterclockwise) so interpolation routines see a consistent progression of points.
-  - Consistency keeps the hull surface well-defined and avoids accidental cross-overs when interpolating between stations.
+   
+   **Critical:** Each profile should list points in a consistent order for reliable calculations.
+   
+   **Recommended Point Ordering:**
+   - Start at the **port side** (left, negative y) at deck/waterline level
+   - Progress **downward** along the port side
+   - Continue through the **keel** (lowest point, centerline y=0)
+   - Progress **upward** along the starboard side
+   - End at the **starboard side** (right, positive y) at deck/waterline level
+   
+   **Example ordering for a kayak profile:**
+   ```
+   Point 0: Port deck edge     (y < 0, z high)
+   Point 1: Port chine          (y < 0, z mid)
+   Point 2: Port bilge          (y < 0, z low)
+   Point 3: Keel                (y = 0, z lowest)
+   Point 4: Starboard bilge     (y > 0, z low)
+   Point 5: Starboard chine     (y > 0, z mid)
+   Point 6: Starboard deck edge (y > 0, z high)
+   ```
+   
+   **Why consistent ordering matters:**
+   - Ensures correct area calculations using the shoelace formula
+   - Maintains proper waterline intersections
+   - Enables accurate longitudinal interpolation between profiles
+   - Prevents reversed surface normals
+   - Avoids cross-overs when interpolating between stations
+   
+   **Important:** Use the same traversal direction (port→keel→starboard or vice versa) for **all** profiles in your hull. Mixing directions will cause calculation errors.
 
 4. **Symmetry**
    - Most kayaks are symmetric about centerline

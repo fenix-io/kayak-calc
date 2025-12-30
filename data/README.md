@@ -237,6 +237,13 @@ Include points at:
 - Deck edges
 - Keel area
 
+**Point Ordering:** List points in consistent order for all profiles:
+- Recommended: Port side (y < 0) → Keel (y = 0) → Starboard side (y > 0)
+- Walk each profile from port deck/waterline, down through port side, across keel, up through starboard side, to starboard deck/waterline
+- **Critical:** Use the same traversal direction for every profile
+
+**Bow/Stern:** No explicit bow or stern entries needed in hull files. The software automatically derives bow and stern positions from the first and last profiles.
+
 ### Validation Checklist
 
 Before using a new hull file:
