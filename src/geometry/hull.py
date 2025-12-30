@@ -22,19 +22,36 @@ class KayakHull:
     Attributes:
         profiles (Dict[float, Profile]): Dictionary mapping station positions to profiles
         origin (Point3D): Reference origin point on centerline
+        coordinate_system (str): Coordinate system reference ('bow_origin', 'stern_origin', etc.)
+        bow_apex (Optional[Point3D]): Explicit bow apex point
+        stern_apex (Optional[Point3D]): Explicit stern apex point
+        metadata (Optional[Dict]): Additional metadata from input file
         length (float): Overall length of kayak
         beam (float): Maximum beam (width)
     """
 
-    def __init__(self, origin: Optional[Point3D] = None):
+    def __init__(
+        self,
+        origin: Optional[Point3D] = None,
+        coordinate_system: str = "bow_origin",
+        bow_apex: Optional[Point3D] = None,
+        stern_apex: Optional[Point3D] = None,
+    ):
         """
         Initialize a kayak hull.
 
         Args:
             origin: Reference origin point (default: Point3D(0, 0, 0))
+            coordinate_system: Coordinate system reference (default: 'bow_origin')
+            bow_apex: Optional explicit bow apex point
+            stern_apex: Optional explicit stern apex point
         """
         self.profiles: Dict[float, Profile] = {}
         self.origin = origin if origin is not None else Point3D(0.0, 0.0, 0.0)
+        self.coordinate_system = coordinate_system
+        self.bow_apex = bow_apex
+        self.stern_apex = stern_apex
+        self.metadata: Optional[Dict] = None
         self._sorted_stations: Optional[List[float]] = None
 
     def add_profile(self, profile: Profile) -> None:
@@ -393,23 +410,67 @@ class KayakHull:
         """
         Get the bow (forward) station position.
 
+        Returns the station of the bow, respecting the coordinate system.
+        If bow_apex is defined, returns its x-coordinate.
+        Otherwise, returns the appropriate extreme station based on coordinate system.
+
         Returns:
-            Maximum station position (assumed to be bow)
+            Bow station position
         """
-        if len(self.profiles) == 0:
-            raise ValueError("Hull has no profiles")
-        return max(self.profiles.keys())
+        if len(self.profiles) == 0 and self.bow_apex is None:
+            raise ValueError("Hull has no profiles and no bow_apex defined")
+
+        # If explicit bow apex is defined, use it
+        if self.bow_apex is not None:
+            return self.bow_apex.x
+
+        # Otherwise determine from profiles based on coordinate system
+        stations = list(self.profiles.keys())
+        if self.coordinate_system == "bow_origin":
+            # Bow is at minimum x (origin is at bow)
+            return min(stations)
+        elif self.coordinate_system == "stern_origin":
+            # Bow is at maximum x (origin is at stern)
+            return max(stations)
+        elif self.coordinate_system == "midship_origin":
+            # Bow is at maximum x (origin is at midship)
+            return max(stations)
+        else:
+            # Default: bow at minimum (bow_origin behavior)
+            return min(stations)
 
     def get_stern_station(self) -> float:
         """
         Get the stern (aft) station position.
 
+        Returns the station of the stern, respecting the coordinate system.
+        If stern_apex is defined, returns its x-coordinate.
+        Otherwise, returns the appropriate extreme station based on coordinate system.
+
         Returns:
-            Minimum station position (assumed to be stern)
+            Stern station position
         """
-        if len(self.profiles) == 0:
-            raise ValueError("Hull has no profiles")
-        return min(self.profiles.keys())
+        if len(self.profiles) == 0 and self.stern_apex is None:
+            raise ValueError("Hull has no profiles and no stern_apex defined")
+
+        # If explicit stern apex is defined, use it
+        if self.stern_apex is not None:
+            return self.stern_apex.x
+
+        # Otherwise determine from profiles based on coordinate system
+        stations = list(self.profiles.keys())
+        if self.coordinate_system == "bow_origin":
+            # Stern is at maximum x (origin is at bow)
+            return max(stations)
+        elif self.coordinate_system == "stern_origin":
+            # Stern is at minimum x (origin is at stern)
+            return min(stations)
+        elif self.coordinate_system == "midship_origin":
+            # Stern is at minimum x (origin is at midship)
+            return min(stations)
+        else:
+            # Default: stern at maximum (bow_origin behavior)
+            return max(stations)
 
     def rotate_about_x(self, angle_deg: float) -> "KayakHull":
         """
@@ -423,7 +484,16 @@ class KayakHull:
         Returns:
             New KayakHull with all profiles rotated
         """
-        new_hull = KayakHull(origin=self.origin.rotate_x(angle_deg))
+        # Rotate apex points if they exist
+        rotated_bow = self.bow_apex.rotate_x(angle_deg) if self.bow_apex else None
+        rotated_stern = self.stern_apex.rotate_x(angle_deg) if self.stern_apex else None
+
+        new_hull = KayakHull(
+            origin=self.origin.rotate_x(angle_deg),
+            coordinate_system=self.coordinate_system,
+            bow_apex=rotated_bow,
+            stern_apex=rotated_stern,
+        )
 
         for station, profile in self.profiles.items():
             rotated_profile = profile.rotate_about_x(angle_deg)
@@ -443,7 +513,16 @@ class KayakHull:
         Returns:
             New KayakHull with all profiles translated
         """
-        new_hull = KayakHull(origin=self.origin.translate(dx, dy, dz))
+        # Translate apex points if they exist
+        translated_bow = self.bow_apex.translate(dx, dy, dz) if self.bow_apex else None
+        translated_stern = self.stern_apex.translate(dx, dy, dz) if self.stern_apex else None
+
+        new_hull = KayakHull(
+            origin=self.origin.translate(dx, dy, dz),
+            coordinate_system=self.coordinate_system,
+            bow_apex=translated_bow,
+            stern_apex=translated_stern,
+        )
 
         for station, profile in self.profiles.items():
             translated_profile = profile.translate(dx, dy, dz)

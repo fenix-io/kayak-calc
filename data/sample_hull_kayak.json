@@ -3,10 +3,20 @@
     "name": "Realistic Sea Kayak",
     "description": "More realistic kayak hull with proper taper and rocker",
     "units": "m",
-    "coordinate_system": "centerline_origin",
+    "coordinate_system": "bow_origin",
     "water_density": 1025.0,
     "length": 5.2,
     "beam": 0.55
+  },
+  "bow": {
+    "x": 0.0,
+    "y": 0.0,
+    "z": 0.45
+  },
+  "stern": {
+    "x": 5.2,
+    "y": 0.0,
+    "z": 0.45
   },
   "profiles": [
     {

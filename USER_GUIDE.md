@@ -312,37 +312,49 @@ Create a file `my_kayak.json`:
 
 ### Bow and Stern Positions
 
-**Important:** The hull geometry is now defined entirely by the `profiles` array. There is **no need** for explicit `bow` or `stern` entries in the JSON format.
+**Important:** For accurate hydrostatic calculations, you should **explicitly define bow and stern apex points** in your JSON file. Each kayak has unique end geometry that cannot be reliably inferred from profiles alone.
 
-**How bow/stern positions are determined:**
-- The **bow** is derived from the **first profile** (lowest x-coordinate)
-- The **stern** is derived from the **last profile** (highest x-coordinate)  
-- The software automatically extracts the bow/stern positions from these profile endpoints
+**Coordinate System Matters:**
 
-**Example:**
-```python
-# Your profiles define the complete hull:
-profiles = [
-    {"station": 0.0, "points": [...]},    # First profile = BOW
-    {"station": 2.5, "points": [...]},    # Middle profile
-    {"station": 5.0, "points": [...]}     # Last profile = STERN
-]
+The `coordinate_system` field determines where x=0 is located:
+- **`bow_origin`** (recommended): x=0 at bow (front), x increases toward stern
+- **`stern_origin`**: x=0 at stern (back), x increases toward bow  
+- **`midship_origin`**: x=0 at middle
 
-# After loading, bow and stern are automatically available:
-hull = load_hull_from_json('my_kayak.json')
-print(f"Bow at x = {hull.bow.x}")    # x = 0.0 (from first profile)
-print(f"Stern at x = {hull.stern.x}")  # x = 5.0 (from last profile)
+**How to specify bow and stern:**
+
+```json
+{
+  "metadata": {
+    "coordinate_system": "bow_origin",
+    "length": 4.2,
+    ...
+  },
+  "bow": {
+    "x": 0.0,
+    "y": 0.0,
+    "z": 0.12
+  },
+  "stern": {
+    "x": 4.2,
+    "y": 0.0,
+    "z": 0.15
+  },
+  "profiles": [
+    {"station": 0.5, "points": [...]},
+    {"station": 2.0, "points": [...]},
+    {"station": 3.7, "points": [...]}
+  ]
+}
 ```
 
-**For kayaks that taper to a point:**
-- The first/last profile should have points that converge toward the centerline
-- This defines the tapered bow/stern shape
-- No special apex point is needed - the profile itself defines the end geometry
+**Example:** For a 4.2m kayak with `bow_origin`:
+- Bow apex at x=0.0 (the front tip)
+- Stern apex at x=4.2 (the back tip)
+- Profiles between (e.g., 0.5, 1.0, 2.0, 3.0, 3.7)
 
-**Why this approach:**
-- Simpler data format (one less thing to specify)
-- Eliminates potential inconsistencies between bow/stern points and profile data
-- The profiles already contain all geometric information needed
+**Without explicit bow/stern:**
+If you don't provide bow/stern points, the software will use the extreme profiles, which may miss important tapered sections and lead to inaccurate volume calculations.
 
 ### Loading the Hull
 
@@ -353,13 +365,16 @@ from src.io import load_hull_from_json
 hull = load_hull_from_json('my_kayak.json')
 
 # Inspect what we loaded
+print(f"Coordinate system: {hull.coordinate_system}")
 print(f"Number of profiles: {len(hull.profiles)}")
-print(f"Profile stations: {[p.station for p in hull.profiles]}")
-print(f"Bow at: {hull.bow}")
-print(f"Stern at: {hull.stern}")
+print(f"Profile stations: {hull.get_stations()}")
+print(f"Bow station: {hull.get_bow_station()}")
+print(f"Stern station: {hull.get_stern_station()}")
+if hull.bow_apex:
+    print(f"Bow apex: {hull.bow_apex}")
+if hull.stern_apex:
+    print(f"Stern apex: {hull.stern_apex}")
 ```
-
-**Note:** Even without explicit `bow`/`stern` entries in the JSON file, the `hull` object still provides these attributes - they are automatically inferred from the first and last profiles.
 
 ### CSV Format Example
 

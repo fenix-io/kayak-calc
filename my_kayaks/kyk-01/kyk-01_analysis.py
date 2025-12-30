@@ -10,7 +10,7 @@ import os
 # This suggests the hull data may be for a scale model or measurements need verification
 # Using appropriate masses for this hull capacity
 
-waterline_z = 0.150 
+waterline_z = 0.110 
 script_dir = os.path.dirname(os.path.abspath(__file__))
 
 # Load your hull data

@@ -14,6 +14,7 @@ from typing import Dict, List, Any, Optional, Union
 from ..geometry.hull import KayakHull
 from ..geometry.profile import Profile
 from ..geometry.point import Point3D
+from ..geometry.interpolation import interpolate_longitudinal
 from .validators import (
     validate_hull_data,
     validate_csv_data,
@@ -313,23 +314,167 @@ def _create_hull_from_dict(data: Dict[str, Any]) -> KayakHull:
     """
     Create a KayakHull object from a validated data dictionary.
 
+    Automatically creates intermediate profiles between end profiles and
+    bow/stern apex points if they are defined.
+
     Args:
         data: Dictionary with 'metadata' and 'profiles' keys
 
     Returns:
-        KayakHull object
+        KayakHull object with interpolated bow/stern profiles if apex points defined
     """
-    # Create hull
-    hull = KayakHull()
+    # Extract metadata
+    metadata = data.get("metadata", {})
+    coordinate_system = metadata.get("coordinate_system", "bow_origin")
+
+    # Extract bow and stern apex points if present
+    bow_apex = None
+    stern_apex = None
+
+    if "bow" in data:
+        bow_data = data["bow"]
+        bow_apex = Point3D(float(bow_data["x"]), float(bow_data["y"]), float(bow_data["z"]))
+
+    if "stern" in data:
+        stern_data = data["stern"]
+        stern_apex = Point3D(float(stern_data["x"]), float(stern_data["y"]), float(stern_data["z"]))
+
+    # Create hull with coordinate system and apex points
+    hull = KayakHull(
+        coordinate_system=coordinate_system,
+        bow_apex=bow_apex,
+        stern_apex=stern_apex,
+    )
 
     # Store metadata as attributes (if needed in future)
-    if "metadata" in data:
-        hull.metadata = data["metadata"]
+    hull.metadata = metadata
 
     # Add profiles
     for profile_data in data["profiles"]:
         profile = _create_profile_from_dict(profile_data)
         hull.add_profile(profile)
+
+    # Automatically create interpolated profiles to bow/stern if apex points are defined
+    # We create end profiles that taper appropriately and use longitudinal interpolation
+    if bow_apex is not None and len(hull.profiles) > 0:
+        stations = sorted(hull.get_stations())
+
+        # Find the profile closest to the bow apex
+        if coordinate_system == "bow_origin":
+            closest_station = min(stations)
+        elif coordinate_system == "stern_origin":
+            closest_station = max(stations)
+        else:
+            closest_station = min(stations, key=lambda s: abs(s - bow_apex.x))
+
+        # Only interpolate if bow apex is not at the same station
+        if abs(closest_station - bow_apex.x) > 1e-6:
+            closest_profile = hull.get_profile(closest_station, interpolate=False)
+
+            # Create end profile that matches the structure of the closest profile
+            # but scaled down in beam while maintaining the depth (z) characteristics
+            closest_points = sorted(closest_profile.points, key=lambda p: p.y)
+
+            # Calculate scale factor for beam (15% of original)
+            beam_scale = 0.15
+
+            # Create scaled points maintaining z-structure
+            end_points = []
+            for pt in closest_points:
+                # Scale y-coordinate (transverse)
+                scaled_y = pt.y * beam_scale
+                # Keep z-coordinate the same (depth profile stays similar)
+                end_points.append(Point3D(bow_apex.x, scaled_y, pt.z))
+
+            bow_end_profile = Profile(bow_apex.x, end_points)
+
+            # Create intermediate stations
+            distance = abs(bow_apex.x - closest_station)
+            num_intermediate = max(2, int(distance / 0.25))
+
+            intermediate_stations = np.linspace(bow_apex.x, closest_station, num_intermediate + 2)[
+                1:-1
+            ]
+
+            # Manually create interpolated profiles that properly expand from narrow to wide
+            for target_station in intermediate_stations:
+                # Calculate interpolation factor
+                # t = 0 at bow (narrow), t = 1 at closest_station (wide)
+                t = abs(target_station - bow_apex.x) / abs(closest_station - bow_apex.x)
+
+                # Interpolate each point: scale y-coordinates, interpolate z-coordinates
+                interp_points = []
+                for pt in closest_points:
+                    # Interpolate y: from narrow (beam_scale * y) to wide (y)
+                    y_interp = pt.y * (beam_scale + t * (1 - beam_scale))
+                    # Interpolate z
+                    z_interp = pt.z
+                    interp_points.append(Point3D(target_station, y_interp, z_interp))
+
+                hull.add_profile(Profile(target_station, interp_points))
+
+            # Add the bow end profile
+            hull.add_profile(bow_end_profile)
+
+    if stern_apex is not None and len(hull.profiles) > 0:
+        stations = sorted(hull.get_stations())
+
+        # Find the profile closest to the stern apex
+        if coordinate_system == "bow_origin":
+            closest_station = max([s for s in stations if s < stern_apex.x])
+        elif coordinate_system == "stern_origin":
+            closest_station = min([s for s in stations if s > stern_apex.x])
+        else:
+            closest_station = min(stations, key=lambda s: abs(s - stern_apex.x))
+
+        # Only interpolate if stern apex is not at the same station
+        if abs(closest_station - stern_apex.x) > 1e-6:
+            closest_profile = hull.get_profile(closest_station, interpolate=False)
+
+            # Create end profile that matches the structure of the closest profile
+            # but scaled down in beam while maintaining the depth (z) characteristics
+            closest_points = sorted(closest_profile.points, key=lambda p: p.y)
+
+            # Calculate scale factor for beam (15% of original)
+            beam_scale = 0.15
+
+            # Create scaled points maintaining z-structure
+            end_points = []
+            for pt in closest_points:
+                # Scale y-coordinate (transverse)
+                scaled_y = pt.y * beam_scale
+                # Keep z-coordinate the same (depth profile stays similar)
+                end_points.append(Point3D(stern_apex.x, scaled_y, pt.z))
+
+            stern_end_profile = Profile(stern_apex.x, end_points)
+
+            # Create intermediate stations
+            distance = abs(stern_apex.x - closest_station)
+            num_intermediate = max(2, int(distance / 0.25))
+
+            intermediate_stations = np.linspace(
+                closest_station, stern_apex.x, num_intermediate + 2
+            )[1:-1]
+
+            # Manually create interpolated profiles that properly expand from wide to narrow
+            for target_station in intermediate_stations:
+                # Calculate interpolation factor
+                # t = 0 at closest_station (wide), t = 1 at stern (narrow)
+                t = abs(target_station - closest_station) / abs(stern_apex.x - closest_station)
+
+                # Interpolate each point: scale y-coordinates from wide to narrow
+                interp_points = []
+                for pt in closest_points:
+                    # Interpolate y: from wide (y) to narrow (beam_scale * y)
+                    y_interp = pt.y * (1 - t * (1 - beam_scale))
+                    # Keep z the same
+                    z_interp = pt.z
+                    interp_points.append(Point3D(target_station, y_interp, z_interp))
+
+                hull.add_profile(Profile(target_station, interp_points))
+
+            # Add the stern end profile
+            hull.add_profile(stern_end_profile)
 
     return hull
 
@@ -374,11 +519,34 @@ def save_hull_to_json(
     """
     filepath = Path(filepath)
 
-    # Apply defaults to metadata
-    complete_metadata = apply_metadata_defaults(metadata)
+    # Start with hull's existing metadata or empty dict
+    complete_metadata = dict(hull.metadata) if hull.metadata else {}
+
+    # Update with provided metadata
+    if metadata:
+        complete_metadata.update(metadata)
+
+    # Ensure coordinate_system is in metadata
+    if "coordinate_system" not in complete_metadata:
+        complete_metadata["coordinate_system"] = hull.coordinate_system
+
+    # Apply defaults
+    complete_metadata = apply_metadata_defaults(complete_metadata)
 
     # Build data structure
     hull_data = {"metadata": complete_metadata, "profiles": []}
+
+    # Add bow apex if present
+    if hull.bow_apex is not None:
+        hull_data["bow"] = {"x": hull.bow_apex.x, "y": hull.bow_apex.y, "z": hull.bow_apex.z}
+
+    # Add stern apex if present
+    if hull.stern_apex is not None:
+        hull_data["stern"] = {
+            "x": hull.stern_apex.x,
+            "y": hull.stern_apex.y,
+            "z": hull.stern_apex.z,
+        }
 
     # Add profiles
     for station in hull.get_stations():

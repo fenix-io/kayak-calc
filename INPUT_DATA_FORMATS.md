@@ -47,6 +47,16 @@ The JSON format provides a complete, structured representation of the kayak hull
     "length": number (optional),
     "beam": number (optional)
   },
+  "bow": {
+    "x": number (optional),
+    "y": number (optional),
+    "z": number (optional)
+  },
+  "stern": {
+    "x": number (optional),
+    "y": number (optional),
+    "z": number (optional)
+  },
   "profiles": [
     {
       "station": number,
@@ -71,10 +81,34 @@ The JSON format provides a complete, structured representation of the kayak hull
 | `name` | string | No | - | Descriptive name for the kayak hull |
 | `description` | string | No | - | Detailed description of the hull |
 | `units` | string | Yes | "m" | Length unit: `m`, `cm`, `mm`, `ft`, or `in` |
-| `coordinate_system` | string | Yes | "centerline_origin" | Coordinate reference: `centerline_origin`, `bow_origin`, `stern_origin`, or `midship_origin` |
+| `coordinate_system` | string | Yes | "bow_origin" | Coordinate reference (see Coordinate Systems below) |
 | `water_density` | number | Yes | 1025.0 | Water density in kg/m³ (1025 for seawater, 1000 for freshwater) |
 | `length` | number | No | - | Overall hull length in specified units |
 | `beam` | number | No | - | Maximum hull width in specified units |
+
+#### Coordinate Systems
+
+**Important:** The coordinate system determines where x=0 is located:
+
+- **`bow_origin`**: Origin at bow (front). x increases toward stern. x=0 is bow, x=length is stern.
+- **`stern_origin`**: Origin at stern (back). x increases toward bow. x=0 is stern, x=length is bow.
+- **`midship_origin`**: Origin at midship. x increases in both directions from center.
+- **`centerline_origin`**: Origin at arbitrary point on centerline (legacy, less common).
+
+#### Bow and Stern Apex Points (Optional)
+
+Explicit bow and stern apex points define the exact geometry at the kayak ends:
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `bow.x` | number | No* | Longitudinal position of bow apex |
+| `bow.y` | number | No* | Transverse position (typically 0.0 on centerline) |
+| `bow.z` | number | No* | Vertical position of bow apex |
+| `stern.x` | number | No* | Longitudinal position of stern apex |
+| `stern.y` | number | No* | Transverse position (typically 0.0 on centerline) |
+| `stern.z` | number | No* | Vertical position of stern apex |
+
+**Note:** If bow/stern are not specified, they will be approximated from the first/last profiles. However, for accurate calculations, **explicit bow and stern points are strongly recommended** as each kayak has unique end geometry.
 
 #### Profiles Section
 
