@@ -306,11 +306,11 @@ Create a file `my_kayak.json`:
         {"x": 5.0, "y": 0.25, "z": -0.15}
       ]
     }
-  ],
-  "bow": {"x": 6.0, "y": 0.0, "z": 0.1},
-  "stern": {"x": -1.0, "y": 0.0, "z": 0.1}
+  ]
 }
 ```
+
+> There is no longer a `bow`/`stern` object in the JSON or CSV input. The loader derives those end points from the extrema of the profiles, so the topology is fully captured by the `profiles` array alone.
 
 ### Loading the Hull
 
@@ -326,6 +326,8 @@ print(f"Profile stations: {[p.station for p in hull.profiles]}")
 print(f"Bow at: {hull.bow}")
 print(f"Stern at: {hull.stern}")
 ```
+
+> Even without explicit `bow`/`stern` entries, the loader still exposes those attributes because it infers them from the profile endpoints.
 
 ### CSV Format Example
 
@@ -344,8 +346,6 @@ x,y,z,station,point_type
 5.0,-0.25,-0.15,5.0,profile
 5.0,0.0,0.0,5.0,profile
 5.0,0.25,-0.15,5.0,profile
-6.0,0.0,0.1,6.0,bow
--1.0,0.0,0.1,-1.0,stern
 ```
 
 Load it the same way:
@@ -369,8 +369,9 @@ hull = load_hull_from_csv('my_kayak.csv')
    - Points should go around the perimeter consistently
 
 3. **Point Ordering**
-   - Keep consistent order (e.g., port-to-starboard, bottom-to-top)
-   - Tool doesn't require specific order but consistency helps debugging
+  - Preferred sequencing is to walk the hull boundary from the port waterline, down along one side to the keel, across the bottom, and then up to the starboard waterline (include any centerline or deck points as needed).
+  - Use the same traversal direction for every profile (clockwise or counterclockwise) so interpolation routines see a consistent progression of points.
+  - Consistency keeps the hull surface well-defined and avoids accidental cross-overs when interpolating between stations.
 
 4. **Symmetry**
    - Most kayaks are symmetric about centerline

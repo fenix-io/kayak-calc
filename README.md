@@ -342,6 +342,48 @@ Please feel free to submit issues or pull requests.
 
 ---
 
+## Visualizing in WSL
+If you are runnin in WSL you will not be able to see the images until you setup a X Server on windows.
+Also you will need to install the libraries and rebuild the python which is not prepared to work interactively:
+you can intall it using 
+```
+sudo apt update
+sudo apt install libx11-dev libxrandr-dev libxss-dev libxcursor-dev libxinerama-dev tk-dev libffi-dev liblzma-dev
+```
+next remove the current venv and rebuild python (if you use pyenv)
+```
+rm -rf .venv
+pyenv uninstall -f 3.11.11
+pyenv install 3.11.11
+pyenv local 3.11.11
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -e .
+```
+
+In windows launch the XLaunch app
+In first screen select “Multiple windows”, 
+In second screen “Start no client”, 
+In third screenb activate “Disable access control”
+and launch the app
+
+In wsl execute 
+```
+ip route | awk '/default/ {print $3}'
+```
+Then export it: 
+```
+export DISPLAY=<host-ip>:0
+```
+or
+```
+export DISPLAY=$(ip route | awk '/default/ {print $3}'):0
+echo $DISPLAY
+export LIBGL_ALWAYS_INDIRECT=1
+echo $LIBGL_ALWAYS_INDIRECT
+```
+Launch your scipt as exepcted
+
 ## 📄 License
 
 [To be determined]
@@ -366,5 +408,7 @@ Built using:
 - **Questions**: Review [examples/](examples/) and [docs/](docs/) first
 
 ---
+
+
 
 **Happy Calculating!** 🛶

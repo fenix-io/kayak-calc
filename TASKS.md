@@ -447,6 +447,37 @@
 - 10 component example scripts
 - **Total: 20 example scripts + complete terminology reference**
 
+### 9.5 Hull CG Automation ✅
+- [x] Implement a dedicated method (`calculate_hull_cg_mass_component`) that derives the hull CG from the existing hydrostatic geometry and returns a `MassComponent` describing the hull mass, location, and orientation so no guesswork is required.
+- [x] Wire the hull CG component into `calculate_cg_from_components` so that gear and paddler `MassComponent`s supplied by the user can simply be summed with the calculated hull component, keeping the public API consistent and returning the aggregated CG for downstream stability work.
+- [x] Update every example that currently hard-codes the hull component to call the new hull CG helper; allow a few representative samples to display the calculated CG coordinates in their output for verification.
+- [x] Revise documentation (user guide, docs/README, relevant HOWTOs) to describe the automatic hull CG calculation, including updated sample workflows and API notes.
+- [x] Add targeted unit tests covering the new helper, plus any changes to `calculate_cg_from_components` and the combined CG result to ensure the hull component is included correctly.
+- [x] Run `make format` and `make lint` after changes, then verify `make test` (or equivalent) succeeds before marking the tasks done.
+- **Status:** Complete - Automatic hull CG calculation implemented
+- **Implementation:** `src/hydrostatics/center_of_gravity.py`, `src/hydrostatics/cross_section.py`
+- **Tests:** 15 new tests passing in `tests/test_center_of_gravity.py` (TestCalculateFullSectionProperties, TestCalculateHullCgMassComponent)
+- **Examples:** Updated `examples/center_of_gravity_examples.py` with Example 0 demonstrating automatic hull CG
+- **Documentation:** Complete in `docs/PHASE9_TASK9.5_SUMMARY.md` and `docs/PHASE9_TASK9.5_PLAN.md`
+- **Features:**
+  - `calculate_hull_cg_mass_component()` - Calculate hull CG from geometry + mass
+  - `calculate_full_section_properties()` - Helper for full hull cross-section properties
+  - Returns standard `MassComponent` for seamless integration
+  - Only requires hull mass (no CG guesswork!)
+  - Volumetric centroid calculation using Simpson's rule integration
+  - Full parameter validation and error handling
+- **Benefits:**
+  - Eliminates manual hull CG estimation
+  - More accurate (based on actual geometry)
+  - Easier to use (only mass required)
+  - Fully backward compatible
+  - Comprehensive test coverage (100% pass rate)
+
+### 9.6 Input Format Documentation
+- [ ] Update USER_GUIDE.md and QUICKREF.md so the JSON hull example no longer includes the removed `bow`/`stern` entries and instead emphasizes that profiles supply the complete geometry.
+- [ ] Spell out the preferred point ordering for each profile (e.g., port waterline → keel → starboard waterline, consistent traversal direction) so users know how to list coordinates without guessing.
+- [ ] Add a short note explaining how bow/stern positions are derived from profile data so readers understand why the explicit fields disappeared.
+
 ---
 
 ## Phase 10: Optimization and Enhancement

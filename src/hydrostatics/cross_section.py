@@ -287,3 +287,80 @@ def compare_properties(
         and np.isclose(props1.waterline_z, props2.waterline_z, atol=tolerance)
         and np.isclose(props1.heel_angle, props2.heel_angle, atol=tolerance)
     )
+
+
+def calculate_full_section_properties(profile: Profile) -> Tuple[float, float, float]:
+    """
+    Calculate area and centroid of the entire hull cross-section.
+
+    Unlike calculate_section_properties which computes properties for the
+    submerged portion only, this function calculates properties for the
+    complete hull section. This is useful for calculating the center of
+    gravity of the hull structure.
+
+    The calculation uses the Shoelace formula for area and polygon moment
+    formulas for the centroid. The profile points should define a closed
+    polygon representing the hull cross-section.
+
+    Args:
+        profile: Profile object defining the hull cross-section geometry
+
+    Returns:
+        Tuple of (area, centroid_y, centroid_z) where:
+            - area: Total cross-sectional area (m²)
+            - centroid_y: Transverse position of centroid (m)
+            - centroid_z: Vertical position of centroid (m)
+
+    Raises:
+        ValueError: If profile has fewer than 3 points
+
+    Example:
+        >>> profile = Profile(station=2.0, points=[...])
+        >>> area, cy, cz = calculate_full_section_properties(profile)
+        >>> print(f"Full section area: {area:.4f} m²")
+        >>> print(f"Centroid: ({cy:.4f}, {cz:.4f})")
+
+    Note:
+        - Points should form a closed polygon (clockwise or counter-clockwise)
+        - For symmetric hulls, centroid_y should be approximately 0
+        - The area includes the entire hull section, not just submerged portion
+        - This assumes the profile points define the outer surface of the hull
+    """
+    if len(profile.points) < 3:
+        raise ValueError(
+            f"Need at least 3 points to calculate area and centroid. "
+            f"Profile has {len(profile.points)} point(s)."
+        )
+
+    # Get coordinates as arrays
+    y_coords = profile.get_y_coordinates()
+    z_coords = profile.get_z_coordinates()
+
+    # Calculate area using Shoelace formula
+    # A = 0.5 * |sum(y[i]*(z[i+1]-z[i-1]))|
+    area = 0.5 * np.abs(np.sum(y_coords * (np.roll(z_coords, -1) - np.roll(z_coords, 1))))
+
+    if area == 0:
+        # Degenerate polygon (all points collinear or overlapping)
+        return (0.0, 0.0, 0.0)
+
+    # Calculate centroid using polygon formula
+    # For a polygon with vertices (y_i, z_i):
+    # C_y = (1/(6A)) * sum((y_i + y_{i+1}) * (y_i * z_{i+1} - y_{i+1} * z_i))
+    # C_z = (1/(6A)) * sum((z_i + z_{i+1}) * (y_i * z_{i+1} - y_{i+1} * z_i))
+
+    n = len(profile.points)
+    centroid_y = 0.0
+    centroid_z = 0.0
+
+    for i in range(n):
+        j = (i + 1) % n  # Next vertex (wraps around to 0 at end)
+        cross = y_coords[i] * z_coords[j] - y_coords[j] * z_coords[i]
+        centroid_y += (y_coords[i] + y_coords[j]) * cross
+        centroid_z += (z_coords[i] + z_coords[j]) * cross
+
+    factor = 1.0 / (6.0 * area)
+    centroid_y *= factor
+    centroid_z *= factor
+
+    return (area, centroid_y, centroid_z)

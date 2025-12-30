@@ -18,6 +18,7 @@ from .cross_section import (
     calculate_first_moment_of_area,
     validate_cross_section_properties,
     compare_properties,
+    calculate_full_section_properties,
 )
 
 # Volume integration and displacement (Phase 4, Task 4.2)
@@ -38,11 +39,12 @@ from .volume import (
     validate_center_of_buoyancy,
 )
 
-# Center of gravity (Phase 4, Task 4.4)
+# Center of gravity (Phase 4, Task 4.4 + Phase 9, Task 9.5)
 from .center_of_gravity import (
     MassComponent,
     CenterOfGravity,
     calculate_cg_from_components,
+    calculate_hull_cg_mass_component,
     create_cg_manual,
     validate_center_of_gravity,
     adjust_cg_for_loading,
@@ -55,6 +57,7 @@ __all__ = [
     "calculate_section_properties",
     "calculate_properties_at_heel_angles",
     "calculate_first_moment_of_area",
+    "calculate_full_section_properties",
     "validate_cross_section_properties",
     "compare_properties",
     # Volume and displacement
@@ -76,6 +79,7 @@ __all__ = [
     "MassComponent",
     "CenterOfGravity",
     "calculate_cg_from_components",
+    "calculate_hull_cg_mass_component",
     "create_cg_manual",
     "validate_center_of_gravity",
     "adjust_cg_for_loading",

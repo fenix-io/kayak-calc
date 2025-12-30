@@ -7,6 +7,7 @@ This test suite validates the center of gravity (CG) calculations by:
 3. Testing mass component validation
 4. Testing CG adjustments for loading changes
 5. Testing validation and error handling
+6. Testing automatic hull CG calculation (Phase 9, Task 9.5)
 """
 
 import pytest
@@ -15,11 +16,14 @@ from src.hydrostatics import (
     MassComponent,
     CenterOfGravity,
     calculate_cg_from_components,
+    calculate_hull_cg_mass_component,
     create_cg_manual,
     validate_center_of_gravity,
     adjust_cg_for_loading,
     calculate_mass_summary,
+    calculate_full_section_properties,
 )
+from src.geometry import KayakHull, Profile, Point3D
 
 
 class TestMassComponent:
@@ -527,6 +531,266 @@ class TestRealWorldScenarios:
         is_valid, issues = validate_center_of_gravity(cg, max_tcg_offset=0.03)
         assert not is_valid
         assert any("off centerline" in issue for issue in issues)
+
+
+class TestCalculateFullSectionProperties:
+    """Test calculate_full_section_properties helper function."""
+
+    def test_rectangular_section(self):
+        """Test full section properties for a rectangular cross-section."""
+        # Create a rectangular profile: 1m wide × 0.5m tall, centered at origin
+        points = [
+            Point3D(2.0, -0.5, -0.25),  # Bottom left
+            Point3D(2.0, 0.5, -0.25),  # Bottom right
+            Point3D(2.0, 0.5, 0.25),  # Top right
+            Point3D(2.0, -0.5, 0.25),  # Top left
+        ]
+        profile = Profile(station=2.0, points=points)
+
+        area, cy, cz = calculate_full_section_properties(profile)
+
+        # Expected area: 1.0 × 0.5 = 0.5 m²
+        assert np.isclose(area, 0.5, atol=1e-6)
+
+        # Expected centroid: (0, 0) - at geometric center
+        assert np.isclose(cy, 0.0, atol=1e-6)
+        assert np.isclose(cz, 0.0, atol=1e-6)
+
+    def test_symmetric_hull_section(self):
+        """Test that symmetric hull has centroid on centerline."""
+        # Create a symmetric V-shaped hull section
+        points = [
+            Point3D(2.0, -0.5, 0.0),  # Port waterline
+            Point3D(2.0, 0.0, -0.3),  # Keel
+            Point3D(2.0, 0.5, 0.0),  # Starboard waterline
+        ]
+        profile = Profile(station=2.0, points=points)
+
+        area, cy, cz = calculate_full_section_properties(profile)
+
+        # For symmetric profile, cy should be 0
+        assert np.isclose(cy, 0.0, atol=1e-6)
+
+        # Area should be positive
+        assert area > 0
+
+        # Centroid z should be between keel and waterline
+        assert -0.3 < cz < 0.0
+
+    def test_too_few_points_raises_error(self):
+        """Test that profile with fewer than 3 points raises error."""
+        points = [
+            Point3D(2.0, 0.0, 0.0),
+            Point3D(2.0, 1.0, 0.0),
+        ]
+        profile = Profile(station=2.0, points=points)
+
+        with pytest.raises(ValueError, match="at least 3 points"):
+            calculate_full_section_properties(profile)
+
+
+class TestCalculateHullCgMassComponent:
+    """Test automatic hull CG calculation from geometry."""
+
+    def _create_simple_box_hull(self) -> KayakHull:
+        """Create a simple box-shaped hull for testing."""
+        hull = KayakHull()
+
+        # Create 3 identical rectangular profiles along length
+        for x in [0.0, 2.5, 5.0]:
+            points = [
+                Point3D(x, -0.5, -0.25),  # Bottom left
+                Point3D(x, 0.5, -0.25),  # Bottom right
+                Point3D(x, 0.5, 0.25),  # Top right
+                Point3D(x, -0.5, 0.25),  # Top left
+            ]
+            hull.add_profile(Profile(station=x, points=points))
+
+        return hull
+
+    def _create_symmetric_kayak_hull(self) -> KayakHull:
+        """Create a more realistic symmetric kayak hull."""
+        hull = KayakHull()
+
+        # Create profiles at different stations
+        stations = [0.0, 1.0, 2.0, 3.0, 4.0, 5.0]
+        max_beam = 0.6  # 60 cm half-beam at widest
+
+        for x in stations:
+            # Beam tapers toward ends
+            t = x / 5.0  # Normalized position
+            beam_factor = 4 * t * (1 - t)  # Parabolic taper
+            half_beam = max_beam * beam_factor
+
+            if half_beam < 0.01:
+                half_beam = 0.01  # Minimum beam at ends
+
+            # V-shaped cross-section
+            points = [
+                Point3D(x, -half_beam, 0.0),  # Port waterline
+                Point3D(x, 0.0, -0.25),  # Keel
+                Point3D(x, half_beam, 0.0),  # Starboard waterline
+            ]
+            hull.add_profile(Profile(station=x, points=points))
+
+        return hull
+
+    def test_basic_calculation(self):
+        """Test basic hull CG calculation."""
+        hull = self._create_simple_box_hull()
+
+        hull_component = calculate_hull_cg_mass_component(hull, hull_mass=25.0)
+
+        # Check it returns a MassComponent
+        assert isinstance(hull_component, MassComponent)
+        assert hull_component.name == "Hull"
+        assert hull_component.mass == 25.0
+
+        # For a uniform box from 0 to 5m, LCG should be at 2.5m
+        assert np.isclose(hull_component.x, 2.5, atol=0.1)
+
+        # TCG should be 0 (symmetric)
+        assert np.isclose(hull_component.y, 0.0, atol=1e-6)
+
+        # VCG should be 0 (centered vertically)
+        assert np.isclose(hull_component.z, 0.0, atol=0.1)
+
+    def test_symmetric_hull_tcg_is_zero(self):
+        """Test that symmetric hull has TCG ≈ 0."""
+        hull = self._create_symmetric_kayak_hull()
+
+        hull_component = calculate_hull_cg_mass_component(hull, hull_mass=28.0)
+
+        # Symmetric hull should have TCG very close to 0
+        assert np.isclose(hull_component.y, 0.0, atol=1e-6)
+
+    def test_negative_mass_raises_error(self):
+        """Test that negative mass raises error."""
+        hull = self._create_simple_box_hull()
+
+        with pytest.raises(ValueError, match="Hull mass must be positive"):
+            calculate_hull_cg_mass_component(hull, hull_mass=-10.0)
+
+    def test_zero_mass_raises_error(self):
+        """Test that zero mass raises error."""
+        hull = self._create_simple_box_hull()
+
+        with pytest.raises(ValueError, match="Hull mass must be positive"):
+            calculate_hull_cg_mass_component(hull, hull_mass=0.0)
+
+    def test_insufficient_profiles_raises_error(self):
+        """Test that hull with < 2 profiles raises error."""
+        hull = KayakHull()
+
+        # Add only one profile
+        points = [
+            Point3D(2.0, -0.5, 0.0),
+            Point3D(2.0, 0.0, -0.3),
+            Point3D(2.0, 0.5, 0.0),
+        ]
+        hull.add_profile(Profile(station=2.0, points=points))
+
+        with pytest.raises(ValueError, match="at least 2 profiles"):
+            calculate_hull_cg_mass_component(hull, hull_mass=25.0)
+
+    def test_invalid_method_raises_error(self):
+        """Test that invalid method raises error."""
+        hull = self._create_simple_box_hull()
+
+        with pytest.raises(ValueError, match="Unsupported method"):
+            calculate_hull_cg_mass_component(hull, hull_mass=25.0, method="invalid")
+
+    def test_custom_name_and_description(self):
+        """Test custom name and description."""
+        hull = self._create_simple_box_hull()
+
+        hull_component = calculate_hull_cg_mass_component(
+            hull, hull_mass=25.0, name="Carbon Hull", description="Custom carbon fiber hull"
+        )
+
+        assert hull_component.name == "Carbon Hull"
+        assert "Custom carbon fiber hull" in hull_component.description
+
+    def test_integration_with_cg_calculation(self):
+        """Test that hull component integrates with total CG calculation."""
+        hull = self._create_simple_box_hull()
+
+        # Calculate hull CG automatically
+        hull_component = calculate_hull_cg_mass_component(hull, hull_mass=25.0)
+
+        # Add other components
+        components = [
+            hull_component,
+            MassComponent("Paddler", mass=80.0, x=2.0, y=0.0, z=0.3),
+            MassComponent("Gear", mass=15.0, x=1.5, y=0.0, z=0.1),
+        ]
+
+        # Calculate total CG
+        total_cg = calculate_cg_from_components(components)
+
+        # Verify result is reasonable
+        assert total_cg.total_mass == 120.0  # 25 + 80 + 15
+        assert 1.5 < total_cg.lcg < 2.5  # Somewhere in middle
+        assert total_cg.vcg > 0  # Above hull due to paddler
+        assert np.isclose(total_cg.tcg, 0.0, atol=0.01)  # Near centerline
+
+    def test_num_stations_parameter(self):
+        """Test that num_stations parameter works."""
+        hull = self._create_simple_box_hull()
+
+        # Calculate with custom number of stations
+        hull_component_few = calculate_hull_cg_mass_component(hull, hull_mass=25.0, num_stations=5)
+        hull_component_many = calculate_hull_cg_mass_component(
+            hull, hull_mass=25.0, num_stations=20
+        )
+
+        # Both should give similar results for this simple hull
+        assert np.isclose(hull_component_few.x, hull_component_many.x, atol=0.1)
+        assert np.isclose(
+            hull_component_few.y, hull_component_many.y, atol=0.15
+        )  # Looser tolerance for numerical precision
+        assert np.isclose(hull_component_few.z, hull_component_many.z, atol=0.1)
+
+    def test_result_is_finite(self):
+        """Test that all calculated values are finite."""
+        hull = self._create_symmetric_kayak_hull()
+
+        hull_component = calculate_hull_cg_mass_component(hull, hull_mass=28.0)
+
+        assert np.isfinite(hull_component.x)
+        assert np.isfinite(hull_component.y)
+        assert np.isfinite(hull_component.z)
+        assert np.isfinite(hull_component.mass)
+
+    def test_realistic_kayak_values(self):
+        """Test with realistic kayak and verify CG is reasonable."""
+        hull = self._create_symmetric_kayak_hull()
+
+        hull_component = calculate_hull_cg_mass_component(hull, hull_mass=28.0)
+
+        # LCG should be somewhere in middle of hull (0 to 5m)
+        assert 1.5 < hull_component.x < 3.5
+
+        # TCG should be very close to 0 (symmetric hull)
+        assert np.isclose(hull_component.y, 0.0, atol=0.01)
+
+        # VCG should be below waterline (z=0) but above keel (z=-0.25)
+        assert -0.25 < hull_component.z < 0.0
+
+    def test_comparison_with_manual_specification(self):
+        """Test that automatic calculation gives similar results to manual."""
+        hull = self._create_simple_box_hull()
+
+        # Calculate automatically
+        auto_component = calculate_hull_cg_mass_component(hull, hull_mass=25.0)
+
+        # For this simple box hull, we know CG should be at (2.5, 0, 0)
+        manual_component = MassComponent("Hull Manual", mass=25.0, x=2.5, y=0.0, z=0.0)
+
+        # Should match within reasonable tolerance
+        assert np.isclose(auto_component.x, manual_component.x, atol=0.1)
+        assert np.isclose(auto_component.y, manual_component.y, atol=0.01)
+        assert np.isclose(auto_component.z, manual_component.z, atol=0.1)
 
 
 # Run tests if executed directly

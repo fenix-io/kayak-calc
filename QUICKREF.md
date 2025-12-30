@@ -174,11 +174,13 @@ generate_stability_report(
         {"x": 2.5, "y": 0.35, "z": -0.25}
       ]
     }
-  ],
-  "bow": {"x": 5.0, "y": 0.0, "z": 0.15},
-  "stern": {"x": -5.0, "y": 0.0, "z": 0.15}
+  ]
 }
 ```
+
+> Bow and stern positions are now derived from the extremal profiles, so you only need to define the station profiles themselves.
+
+**Profile Point Order:** Walk each profile boundary from the port waterline down to the keel and back up to the starboard waterline (including centerline or deck points along the way). Keeping the same traversal direction across all profiles prevents interpolated sections from twisting.
 
 ### CSV Hull Format
 
@@ -198,8 +200,6 @@ x,y,z,station,point_type
 2.5,0.0,0.1,2.5,profile
 2.5,0.35,0.0,2.5,profile
 2.5,0.35,-0.25,2.5,profile
-5.0,0.0,0.15,5.0,bow
--5.0,0.0,0.15,-5.0,stern
 ```
 
 ---

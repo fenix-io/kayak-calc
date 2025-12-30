@@ -2,11 +2,12 @@
 Examples demonstrating center of gravity (CG) calculations.
 
 This module shows how to:
-1. Calculate CG from mass components
-2. Specify CG manually
-3. Adjust CG for loading changes
-4. Validate CG position
-5. Analyze mass distribution
+1. Automatically calculate hull CG from geometry (NEW!)
+2. Calculate CG from mass components
+3. Specify CG manually
+4. Adjust CG for loading changes
+5. Validate CG position
+6. Analyze mass distribution
 """
 
 import numpy as np
@@ -14,11 +15,66 @@ import matplotlib.pyplot as plt
 from src.hydrostatics import (
     MassComponent,
     calculate_cg_from_components,
+    calculate_hull_cg_mass_component,
     create_cg_manual,
     validate_center_of_gravity,
     adjust_cg_for_loading,
     calculate_mass_summary,
 )
+from src.io import load_hull_from_json
+
+
+def example_0_automatic_hull_cg():
+    """Example 0: Automatic hull CG calculation from geometry (NEW!)."""
+    print("=" * 70)
+    print("Example 0: Automatic Hull CG Calculation from Geometry (NEW!)")
+    print("=" * 70)
+    print("\nThis example shows how to automatically calculate the hull CG")
+    print("from geometry, eliminating the need for manual estimation.")
+
+    # Load hull geometry
+    hull = load_hull_from_json("data/sample_hull_kayak.json")
+    print(f"\nLoaded hull with {len(hull)} profiles")
+
+    # Calculate hull CG automatically - only need to provide mass!
+    hull_mass = 28.0  # kg (from manufacturer spec or weighing)
+    hull_component = calculate_hull_cg_mass_component(hull, hull_mass=hull_mass)
+
+    print(f"\n{'=' * 50}")
+    print("Calculated Hull CG (Automatic):")
+    print(f"{'=' * 50}")
+    print(f"  Mass:  {hull_component.mass:.2f} kg")
+    print(f"  LCG:   {hull_component.x:.4f} m (longitudinal)")
+    print(f"  TCG:   {hull_component.y:.4f} m (transverse - should be ≈0)")
+    print(f"  VCG:   {hull_component.z:.4f} m (vertical)")
+    print(f"\nNo more guesswork! The hull CG is calculated from the geometry.")
+
+    # Now use this in a complete CG calculation
+    print(f"\n{'=' * 50}")
+    print("Complete System CG Calculation:")
+    print(f"{'=' * 50}")
+
+    components = [
+        hull_component,  # Automatic!
+        MassComponent("Paddler", mass=80.0, x=2.0, y=0.0, z=0.3, description="Adult paddler"),
+        MassComponent("Gear", mass=15.0, x=1.5, y=0.0, z=0.1, description="Camping gear"),
+    ]
+
+    total_cg = calculate_cg_from_components(components)
+
+    print(f"\nTotal System:")
+    print(f"  Total mass: {total_cg.total_mass:.2f} kg")
+    print(f"  LCG: {total_cg.lcg:.4f} m")
+    print(f"  VCG: {total_cg.vcg:.4f} m")
+    print(f"  TCG: {total_cg.tcg:.4f} m")
+
+    # Show mass breakdown
+    print(f"\nMass Breakdown:")
+    for comp in components:
+        percentage = (comp.mass / total_cg.total_mass) * 100
+        print(f"  {comp.name:12s}: {comp.mass:5.1f} kg ({percentage:5.1f}%)")
+
+    print()
 
 
 def example_1_basic_cg_calculation():
@@ -28,6 +84,7 @@ def example_1_basic_cg_calculation():
     print("=" * 70)
 
     # Define mass components for a touring kayak
+    # NOTE: Hull component can now be calculated automatically (see Example 0)
     components = [
         MassComponent(
             name="Hull",
@@ -35,7 +92,7 @@ def example_1_basic_cg_calculation():
             x=2.3,  # meters from origin (longitudinal)
             y=0.0,  # on centerline
             z=-0.05,  # below origin (vertical)
-            description="Fiberglass hull",
+            description="Fiberglass hull (manual specification)",
         ),
         MassComponent(name="Paddler", mass=75.0, x=2.0, y=0.0, z=0.25, description="Adult paddler"),
         MassComponent(
@@ -396,6 +453,7 @@ def main():
     print("*" * 70)
     print("\n")
 
+    example_0_automatic_hull_cg()  # NEW: Automatic hull CG
     example_1_basic_cg_calculation()
     example_2_manual_cg_specification()
     example_3_loading_adjustments()

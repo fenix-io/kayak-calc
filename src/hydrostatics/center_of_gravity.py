@@ -12,6 +12,7 @@ Components:
 - CenterOfGravity: Dataclass for CG position
 - MassComponent: Individual mass item with position
 - calculate_cg_from_components: Aggregate CG from multiple components
+- calculate_hull_cg_mass_component: Auto-calculate hull CG from geometry
 - validate_center_of_gravity: Validation and warnings
 """
 
@@ -474,3 +475,153 @@ def calculate_mass_summary(components: List[MassComponent]) -> dict:
             for c in sorted(components, key=lambda x: x.mass, reverse=True)
         ],
     }
+
+
+def calculate_hull_cg_mass_component(
+    hull,  # Type: KayakHull (avoiding circular import)
+    hull_mass: float,
+    method: str = "volume",
+    num_stations: Optional[int] = None,
+    name: str = "Hull",
+    description: str = "Hull structure (calculated CG)",
+) -> MassComponent:
+    """
+    Calculate hull center of gravity from hydrostatic geometry.
+
+    Automatically derives the center of gravity of the hull structure from
+    the hull geometry, eliminating the need for manual estimation. This
+    function computes the volumetric centroid of the hull, which provides
+    a good approximation of the CG for hulls with relatively uniform
+    material distribution.
+
+    The calculation integrates cross-sectional area and centroid positions
+    along the hull length to find the three-dimensional centroid. This
+    assumes the hull mass is distributed proportionally to volume, which
+    is reasonable for uniform-thickness shells or solid materials.
+
+    Args:
+        hull: KayakHull object with defined geometry
+        hull_mass: Total hull mass (kg) - must be known or measured
+        method: Calculation method (default: 'volume')
+                - 'volume': Volumetric centroid (recommended)
+                - 'surface': Surface area centroid (future enhancement)
+        num_stations: Number of stations for integration
+                     If None, uses hull's existing stations
+        name: Component name (default: "Hull")
+        description: Component description (default: auto-generated)
+
+    Returns:
+        MassComponent representing the hull with calculated CG position
+
+    Raises:
+        ValueError: If hull_mass is non-positive
+        ValueError: If hull has insufficient profiles (need at least 2)
+        ValueError: If method is not supported
+
+    Example:
+        >>> # Load hull geometry
+        >>> hull = load_kayak_hull("data/sample_hull_kayak.json")
+        >>>
+        >>> # Calculate hull CG automatically (only mass needed!)
+        >>> hull_component = calculate_hull_cg_mass_component(hull, hull_mass=28.0)
+        >>> print(f"Hull CG: x={hull_component.x:.3f}, z={hull_component.z:.3f}")
+        >>>
+        >>> # Use in complete CG calculation
+        >>> components = [
+        ...     hull_component,
+        ...     MassComponent("Paddler", mass=80.0, x=2.0, y=0.0, z=0.3),
+        ...     MassComponent("Gear", mass=15.0, x=1.5, y=0.0, z=0.1)
+        ... ]
+        >>> total_cg = calculate_cg_from_components(components)
+
+    Note:
+        - This calculates the centroid of the hull volume/geometry
+        - Assumes relatively uniform mass distribution in the hull
+        - For hulls with concentrated masses (heavy keel, etc.), adjust manually
+        - The volumetric centroid is a good first approximation for CG
+        - For thin-shell hulls, 'volume' method is still recommended
+        - TCG (y-coordinate) should be approximately 0 for symmetric hulls
+    """
+    # Import here to avoid circular dependency
+    from ..geometry import KayakHull
+    from .cross_section import calculate_full_section_properties
+
+    # Validate inputs
+    if hull_mass <= 0:
+        raise ValueError(f"Hull mass must be positive, got {hull_mass} kg")
+
+    if not isinstance(hull, KayakHull):
+        raise TypeError(f"Expected KayakHull object, got {type(hull)}")
+
+    if len(hull) < 2:
+        raise ValueError(
+            f"Need at least 2 profiles to calculate hull CG. " f"Hull has {len(hull)} profile(s)."
+        )
+
+    if method not in ["volume"]:
+        raise ValueError(
+            f"Unsupported method: '{method}'. Currently supported: 'volume'. "
+            f"Method 'surface' is reserved for future enhancement."
+        )
+
+    # Determine stations to use
+    if num_stations is not None:
+        # Create evenly spaced stations
+        min_station = hull.get_stern_station()
+        max_station = hull.get_bow_station()
+        stations = np.linspace(min_station, max_station, num_stations)
+    else:
+        # Use hull's existing stations
+        stations = hull.get_stations()
+
+    # Calculate properties at each station
+    areas = []
+    y_centroids = []
+    z_centroids = []
+
+    for station in stations:
+        profile = hull.get_profile(station, interpolate=True)
+
+        # Calculate full hull cross-section properties
+        area, centroid_y, centroid_z = calculate_full_section_properties(profile)
+
+        areas.append(area)
+        y_centroids.append(centroid_y)
+        z_centroids.append(centroid_z)
+
+    # Convert to numpy arrays
+    x = np.array(stations)
+    a = np.array(areas)
+    y_c = np.array(y_centroids)
+    z_c = np.array(z_centroids)
+
+    # Calculate volume using Simpson's rule
+    from .volume import integrate_simpson
+
+    volume = integrate_simpson(x, a)
+
+    if volume <= 0:
+        raise ValueError(
+            f"Calculated hull volume is {volume:.6f} m³. "
+            f"Volume must be positive. Check hull geometry."
+        )
+
+    # Calculate first moments (integrate area × coordinate)
+    moment_x = integrate_simpson(x, a * x)  # Longitudinal moment
+    moment_y = integrate_simpson(x, a * y_c)  # Transverse moment
+    moment_z = integrate_simpson(x, a * z_c)  # Vertical moment
+
+    # Calculate centroid coordinates (moment / volume)
+    lcg = moment_x / volume
+    tcg = moment_y / volume
+    vcg = moment_z / volume
+
+    # Create and return MassComponent
+    return MassComponent(
+        name=name,
+        mass=hull_mass,
+        x=lcg,
+        y=tcg,
+        z=vcg,
+        description=description if description else f"Hull structure (volume={volume:.4f} m³)",
+    )
