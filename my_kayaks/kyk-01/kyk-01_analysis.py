@@ -2,7 +2,7 @@ from src.hydrostatics.center_of_gravity import MassComponent, calculate_cg_from_
 from src.io import load_hull_from_json
 from src.hydrostatics import calculate_displacement, calculate_hull_cg_mass_component, calculate_center_of_buoyancy
 from src.stability import StabilityAnalyzer
-from src.visualization import plot_stability_curve, plot_hull_3d
+from src.visualization import plot_stability_curve, plot_hull_3d, plot_righting_moment_curve
 import matplotlib.pyplot as plt
 import os
 
@@ -45,16 +45,28 @@ plt.show()
 # Option A: Scaled masses matching hull capacity (CURRENT APPROACH)
 components = [
     calculate_hull_cg_mass_component(hull, hull_mass=12.0),
-    # MassComponent(name="payload", mass=100.0, x=2.6, y=0.0, z=0.30, description="Payload/paddler"),
+    MassComponent(name="payload", mass=90.0, x=hull.length/2 * 1.1, y=0.0, z=0.30, description="Payload/paddler"),
+    MassComponent(name="payload", mass=10.0, x=hull.length/2 * 0.75, y=0.0, z=0.10, description="Payload/paddler"),
 ]
+
+total_mass = sum(c.mass for c in components)
+print(f"\nTotal assumed mass for CG calculation: {total_mass:.1f} kg")
+
+# Calculate displacement
+displacement = calculate_displacement(hull, waterline_z=waterline_z)
+while total_mass > displacement.mass :
+    waterline_z += 0.005  # Raise waterline to accommodate mass
+    displacement = calculate_displacement(hull, waterline_z=waterline_z)
+
+
 
 # Calculate CG automatically
 cg = calculate_cg_from_components(components)
 print(f"\nMass breakdown:")
 for comp in components:
     print(f"  {comp.description}: {comp.mass:.1f} kg at z={comp.z:.3f} m")
-print(f"Total mass: {sum(c.mass for c in components):.1f} kg")
 
+print(f"\nAdjusted waterline z for displacement: {waterline_z:.3f} m")
 print(f"\nCalculated Center of Gravity: x={cg.x:.3f} m, y={cg.y:.3f} m, z={cg.z:.3f} m")
 
 # Calculate CB at design waterline
@@ -65,8 +77,6 @@ print(f"Calculated Center of Buoyancy at WL: x={cb.lcb:.3f} m, y={cb.tcb:.3f} m,
 analyzer = StabilityAnalyzer(hull, cg, waterline_z=waterline_z)
 
 
-# Calculate displacement
-displacement = calculate_displacement(hull, waterline_z=waterline_z)
 
 # Generate stability curve
 curve = analyzer.generate_stability_curve()
@@ -79,13 +89,13 @@ print(f"Displacement: {displacement.mass:.2f} kg")
 print(f"Initial GM: {metrics.gm_estimate:.3f} m")
 print(f"Max GZ: {metrics.max_gz:.3f} m at {metrics.angle_of_max_gz:.0f}°")
 
-# Plot the stability curve
-ax = plot_stability_curve(curve, metrics)
+# Plot the righting moment curve
+ax = plot_righting_moment_curve(curve, displacement_mass=displacement.mass)
 
 # Save in the same directory as this script
-image_path = os.path.join(script_dir, 'stability_curve.png')
+image_path = os.path.join(script_dir, 'righting_moment_curve.png')
 plt.savefig(image_path, dpi=300, bbox_inches='tight')
-print(f"Stability curve saved as '{image_path}'")
+print(f"Righting moment curve saved as '{image_path}'")
 plt.show()  # This won't display in non-interactive environments but won't error
 
 

@@ -14,7 +14,6 @@ from typing import Dict, List, Any, Optional, Union
 from ..geometry.hull import KayakHull
 from ..geometry.profile import Profile
 from ..geometry.point import Point3D
-from ..geometry.interpolation import interpolate_longitudinal
 from .validators import (
     validate_hull_data,
     validate_csv_data,
@@ -354,127 +353,151 @@ def _create_hull_from_dict(data: Dict[str, Any]) -> KayakHull:
         profile = _create_profile_from_dict(profile_data)
         hull.add_profile(profile)
 
+    # Convert coordinate system to stern_origin for consistent calculations
+    # This ensures all calculations are performed from stern to bow
+    if coordinate_system == "bow_origin":
+        hull = hull.convert_coordinate_system("stern_origin")
+        # Update metadata to reflect the conversion
+        metadata["coordinate_system"] = "stern_origin"
+        hull.metadata = metadata
+        # Update coordinate_system variable for subsequent logic
+        coordinate_system = "stern_origin"
+
     # Automatically create interpolated profiles to bow/stern if apex points are defined
     # We create end profiles that taper appropriately and use longitudinal interpolation
-    if bow_apex is not None and len(hull.profiles) > 0:
-        stations = sorted(hull.get_stations())
+    if hull.bow_apex is not None and len(hull.profiles) > 0:
+        # Check if there's already a profile at the bow apex location
+        existing_at_bow = hull.bow_apex.x in hull.profiles
 
-        # Find the profile closest to the bow apex
-        if coordinate_system == "bow_origin":
-            closest_station = min(stations)
-        elif coordinate_system == "stern_origin":
-            closest_station = max(stations)
-        else:
-            closest_station = min(stations, key=lambda s: abs(s - bow_apex.x))
+        if not existing_at_bow:
+            stations = sorted(hull.get_stations())
 
-        # Only interpolate if bow apex is not at the same station
-        if abs(closest_station - bow_apex.x) > 1e-6:
-            closest_profile = hull.get_profile(closest_station, interpolate=False)
+            # Find the profile closest to the bow apex
+            if hull.coordinate_system == "bow_origin":
+                closest_station = min(stations)
+            elif hull.coordinate_system == "stern_origin":
+                closest_station = max(stations)
+            else:
+                closest_station = min(stations, key=lambda s: abs(s - hull.bow_apex.x))
 
-            # Create end profile that matches the structure of the closest profile
-            # but scaled down in beam while maintaining the depth (z) characteristics
-            closest_points = sorted(closest_profile.points, key=lambda p: p.y)
+            # Only interpolate if bow apex is not at the same station
+            if abs(closest_station - hull.bow_apex.x) > 1e-6:
+                closest_profile = hull.get_profile(closest_station, interpolate=False)
 
-            # Calculate scale factor for beam (15% of original)
-            beam_scale = 0.15
+                # Create end profile that matches the structure of the closest profile
+                # but scaled down in beam while maintaining the depth (z) characteristics
+                closest_points = sorted(closest_profile.points, key=lambda p: p.y)
 
-            # Create scaled points maintaining z-structure
-            end_points = []
-            for pt in closest_points:
-                # Scale y-coordinate (transverse)
-                scaled_y = pt.y * beam_scale
-                # Keep z-coordinate the same (depth profile stays similar)
-                end_points.append(Point3D(bow_apex.x, scaled_y, pt.z))
+                # Calculate scale factor for beam (15% of original)
+                beam_scale = 0.15
 
-            bow_end_profile = Profile(bow_apex.x, end_points)
-
-            # Create intermediate stations
-            distance = abs(bow_apex.x - closest_station)
-            num_intermediate = max(2, int(distance / 0.25))
-
-            intermediate_stations = np.linspace(bow_apex.x, closest_station, num_intermediate + 2)[
-                1:-1
-            ]
-
-            # Manually create interpolated profiles that properly expand from narrow to wide
-            for target_station in intermediate_stations:
-                # Calculate interpolation factor
-                # t = 0 at bow (narrow), t = 1 at closest_station (wide)
-                t = abs(target_station - bow_apex.x) / abs(closest_station - bow_apex.x)
-
-                # Interpolate each point: scale y-coordinates, interpolate z-coordinates
-                interp_points = []
+                # Create scaled points maintaining z-structure
+                end_points = []
                 for pt in closest_points:
-                    # Interpolate y: from narrow (beam_scale * y) to wide (y)
-                    y_interp = pt.y * (beam_scale + t * (1 - beam_scale))
-                    # Interpolate z
-                    z_interp = pt.z
-                    interp_points.append(Point3D(target_station, y_interp, z_interp))
+                    # Scale y-coordinate (transverse)
+                    scaled_y = pt.y * beam_scale
+                    # Keep z-coordinate the same (depth profile stays similar)
+                    end_points.append(Point3D(hull.bow_apex.x, scaled_y, pt.z))
 
-                hull.add_profile(Profile(target_station, interp_points))
+                bow_end_profile = Profile(hull.bow_apex.x, end_points)
 
-            # Add the bow end profile
-            hull.add_profile(bow_end_profile)
+                # Create intermediate stations
+                distance = abs(hull.bow_apex.x - closest_station)
+                num_intermediate = max(2, int(distance / 0.25))
 
-    if stern_apex is not None and len(hull.profiles) > 0:
-        stations = sorted(hull.get_stations())
+                intermediate_stations = np.linspace(
+                    hull.bow_apex.x, closest_station, num_intermediate + 2
+                )[1:-1]
 
-        # Find the profile closest to the stern apex
-        if coordinate_system == "bow_origin":
-            closest_station = max([s for s in stations if s < stern_apex.x])
-        elif coordinate_system == "stern_origin":
-            closest_station = min([s for s in stations if s > stern_apex.x])
-        else:
-            closest_station = min(stations, key=lambda s: abs(s - stern_apex.x))
+                # Manually create interpolated profiles
+                # that properly expand from narrow to wide
+                for target_station in intermediate_stations:
+                    # Calculate interpolation factor
+                    # t = 0 at bow (narrow), t = 1 at closest_station (wide)
+                    t = abs(target_station - hull.bow_apex.x) / abs(
+                        closest_station - hull.bow_apex.x
+                    )
 
-        # Only interpolate if stern apex is not at the same station
-        if abs(closest_station - stern_apex.x) > 1e-6:
-            closest_profile = hull.get_profile(closest_station, interpolate=False)
+                    # Interpolate each point: scale y-coordinates, interpolate z-coordinates
+                    interp_points = []
+                    for pt in closest_points:
+                        # Interpolate y: from narrow (beam_scale * y) to wide (y)
+                        y_interp = pt.y * (beam_scale + t * (1 - beam_scale))
+                        # Interpolate z
+                        z_interp = pt.z
+                        interp_points.append(Point3D(target_station, y_interp, z_interp))
 
-            # Create end profile that matches the structure of the closest profile
-            # but scaled down in beam while maintaining the depth (z) characteristics
-            closest_points = sorted(closest_profile.points, key=lambda p: p.y)
+                    hull.add_profile(Profile(target_station, interp_points))
 
-            # Calculate scale factor for beam (15% of original)
-            beam_scale = 0.15
+                # Add the bow end profile
+                hull.add_profile(bow_end_profile)
 
-            # Create scaled points maintaining z-structure
-            end_points = []
-            for pt in closest_points:
-                # Scale y-coordinate (transverse)
-                scaled_y = pt.y * beam_scale
-                # Keep z-coordinate the same (depth profile stays similar)
-                end_points.append(Point3D(stern_apex.x, scaled_y, pt.z))
+    if hull.stern_apex is not None and len(hull.profiles) > 0:
+        # Check if there's already a profile at the stern apex location
+        existing_at_stern = hull.stern_apex.x in hull.profiles
 
-            stern_end_profile = Profile(stern_apex.x, end_points)
+        if not existing_at_stern:
+            stations = sorted(hull.get_stations())
 
-            # Create intermediate stations
-            distance = abs(stern_apex.x - closest_station)
-            num_intermediate = max(2, int(distance / 0.25))
+            # Find the profile closest to the stern apex
+            if hull.coordinate_system == "bow_origin":
+                closest_station = max([s for s in stations if s < hull.stern_apex.x])
+            elif hull.coordinate_system == "stern_origin":
+                closest_station = min([s for s in stations if s > hull.stern_apex.x])
+            else:
+                closest_station = min(stations, key=lambda s: abs(s - hull.stern_apex.x))
 
-            intermediate_stations = np.linspace(
-                closest_station, stern_apex.x, num_intermediate + 2
-            )[1:-1]
+            # Only interpolate if stern apex is not at the same station
+            if abs(closest_station - hull.stern_apex.x) > 1e-6:
+                closest_profile = hull.get_profile(closest_station, interpolate=False)
 
-            # Manually create interpolated profiles that properly expand from wide to narrow
-            for target_station in intermediate_stations:
-                # Calculate interpolation factor
-                # t = 0 at closest_station (wide), t = 1 at stern (narrow)
-                t = abs(target_station - closest_station) / abs(stern_apex.x - closest_station)
+                # Create end profile that matches the structure of the closest profile
+                # but scaled down in beam while maintaining the depth (z) characteristics
+                closest_points = sorted(closest_profile.points, key=lambda p: p.y)
 
-                # Interpolate each point: scale y-coordinates from wide to narrow
-                interp_points = []
+                # Calculate scale factor for beam (15% of original)
+                beam_scale = 0.15
+
+                # Create scaled points maintaining z-structure
+                end_points = []
                 for pt in closest_points:
-                    # Interpolate y: from wide (y) to narrow (beam_scale * y)
-                    y_interp = pt.y * (1 - t * (1 - beam_scale))
-                    # Keep z the same
-                    z_interp = pt.z
-                    interp_points.append(Point3D(target_station, y_interp, z_interp))
+                    # Scale y-coordinate (transverse)
+                    scaled_y = pt.y * beam_scale
+                    # Keep z-coordinate the same (depth profile stays similar)
+                    end_points.append(Point3D(hull.stern_apex.x, scaled_y, pt.z))
 
-                hull.add_profile(Profile(target_station, interp_points))
+                stern_end_profile = Profile(hull.stern_apex.x, end_points)
 
-            # Add the stern end profile
-            hull.add_profile(stern_end_profile)
+                # Create intermediate stations
+                distance = abs(hull.stern_apex.x - closest_station)
+                num_intermediate = max(2, int(distance / 0.25))
+
+                intermediate_stations = np.linspace(
+                    closest_station, hull.stern_apex.x, num_intermediate + 2
+                )[1:-1]
+
+                # Manually create interpolated profiles
+                # that properly expand from wide to narrow
+                for target_station in intermediate_stations:
+                    # Calculate interpolation factor
+                    # t = 0 at closest_station (wide), t = 1 at stern (narrow)
+                    t = abs(target_station - closest_station) / abs(
+                        hull.stern_apex.x - closest_station
+                    )
+
+                    # Interpolate each point: scale y-coordinates from wide to narrow
+                    interp_points = []
+                    for pt in closest_points:
+                        # Interpolate y: from wide (y) to narrow (beam_scale * y)
+                        y_interp = pt.y * (1 - t * (1 - beam_scale))
+                        # Keep z the same
+                        z_interp = pt.z
+                        interp_points.append(Point3D(target_station, y_interp, z_interp))
+
+                    hull.add_profile(Profile(target_station, interp_points))
+
+                # Add the stern end profile
+                hull.add_profile(stern_end_profile)
 
     return hull
 

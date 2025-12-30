@@ -6,7 +6,7 @@
     "coordinate_system": "bow_origin",
     "water_density": 1000.0,
     "length": 4.2,
-    "beam": 0.66
+    "beam": 0.68
   },
   "bow": {
     "x": 0.0,

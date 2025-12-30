@@ -246,8 +246,12 @@ def calculate_volume(
         stations = hull.get_stations()
     elif num_stations is not None:
         # Create evenly spaced stations
-        min_station = hull.get_stern_station()  # Minimum station (stern/aft)
-        max_station = hull.get_bow_station()  # Maximum station (bow/forward)
+        # Note: bow and stern positions depend on coordinate system,
+        # but we need min < max for integration
+        stern_station = hull.get_stern_station()
+        bow_station = hull.get_bow_station()
+        min_station = min(stern_station, bow_station)
+        max_station = max(stern_station, bow_station)
         stations = np.linspace(min_station, max_station, num_stations)
     else:
         stations = hull.get_stations()
@@ -594,8 +598,12 @@ def calculate_center_of_buoyancy(
         stations = hull.get_stations()
     elif num_stations is not None:
         # Create evenly spaced stations
-        min_station = hull.get_stern_station()  # Minimum station (stern/aft)
-        max_station = hull.get_bow_station()  # Maximum station (bow/forward)
+        # Note: bow and stern positions depend on coordinate system,
+        # but we need min < max for integration
+        stern_station = hull.get_stern_station()
+        bow_station = hull.get_bow_station()
+        min_station = min(stern_station, bow_station)
+        max_station = max(stern_station, bow_station)
         stations = np.linspace(min_station, max_station, num_stations)
     else:
         stations = hull.get_stations()

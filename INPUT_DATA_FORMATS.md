@@ -91,9 +91,13 @@ The JSON format provides a complete, structured representation of the kayak hull
 **Important:** The coordinate system determines where x=0 is located:
 
 - **`bow_origin`**: Origin at bow (front). x increases toward stern. x=0 is bow, x=length is stern.
+  **Note:** Data specified in bow_origin will be automatically converted to stern_origin for internal calculations.
 - **`stern_origin`**: Origin at stern (back). x increases toward bow. x=0 is stern, x=length is bow.
+  **Note:** This is the preferred coordinate system for calculations.
 - **`midship_origin`**: Origin at midship. x increases in both directions from center.
 - **`centerline_origin`**: Origin at arbitrary point on centerline (legacy, less common).
+
+**Automatic Conversion:** For consistent calculation direction (stern to bow), all loaded hull data is automatically converted to `stern_origin` coordinate system internally, regardless of the input coordinate system specified in the file.
 
 #### Bow and Stern Apex Points (Optional)
 

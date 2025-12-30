@@ -271,13 +271,20 @@ class KayakHull:
         Get overall length of the hull.
 
         Returns:
-            Distance between first and last stations
+            Distance between bow and stern stations (including apex points if defined)
         """
-        if len(self.profiles) < 2:
+        if len(self.profiles) == 0 and self.bow_apex is None and self.stern_apex is None:
             return 0.0
 
-        stations = self.get_stations()
-        return stations[-1] - stations[0]
+        # Use bow/stern station methods to account for apex points
+        try:
+            return abs(self.get_bow_station() - self.get_stern_station())
+        except ValueError:
+            # If we can't get bow/stern stations, fall back to profile range
+            if len(self.profiles) < 2:
+                return 0.0
+            stations = self.get_stations()
+            return abs(stations[-1] - stations[0])
 
     @property
     def max_beam(self) -> float:
@@ -529,6 +536,113 @@ class KayakHull:
             new_hull.add_profile(translated_profile)
 
         return new_hull
+
+    def convert_coordinate_system(self, target_system: str) -> "KayakHull":
+        """
+        Convert hull to a different coordinate system.
+
+        This method creates a new hull with stations transformed to the target
+        coordinate system. Currently supports conversion between 'bow_origin'
+        and 'stern_origin' systems.
+
+        Args:
+            target_system: Target coordinate system ('bow_origin' or 'stern_origin')
+
+        Returns:
+            New KayakHull in the target coordinate system
+
+        Raises:
+            ValueError: If conversion between specified systems is not supported
+        """
+        if self.coordinate_system == target_system:
+            # No conversion needed
+            return self.copy()
+
+        if self.coordinate_system == "bow_origin" and target_system == "stern_origin":
+            # Convert from bow_origin to stern_origin
+            hull_length = self.length
+            if hull_length <= 0:
+                raise ValueError(
+                    "Cannot convert coordinate system: " "hull has zero or negative length"
+                )
+
+            # Transform apex points
+            new_bow_apex = None
+            new_stern_apex = None
+
+            if self.bow_apex is not None:
+                new_bow_apex = Point3D(
+                    hull_length - self.bow_apex.x, self.bow_apex.y, self.bow_apex.z
+                )
+            if self.stern_apex is not None:
+                new_stern_apex = Point3D(
+                    hull_length - self.stern_apex.x, self.stern_apex.y, self.stern_apex.z
+                )
+
+            # Create new hull
+            new_hull = KayakHull(
+                origin=self.origin,
+                coordinate_system=target_system,
+                bow_apex=new_bow_apex,
+                stern_apex=new_stern_apex,
+            )
+
+            # Transform all profiles
+            for station, profile in self.profiles.items():
+                new_station = hull_length - station
+                # Create new points with transformed x-coordinates
+                new_points = [Point3D(new_station, pt.y, pt.z) for pt in profile.points]
+                # Create new profile with transformed station and points
+                new_profile = Profile(new_station, new_points)
+                new_hull.add_profile(new_profile)
+
+            return new_hull
+
+        elif self.coordinate_system == "stern_origin" and target_system == "bow_origin":
+            # Convert from stern_origin to bow_origin
+            hull_length = self.length
+            if hull_length <= 0:
+                raise ValueError(
+                    "Cannot convert coordinate system: " "hull has zero or negative length"
+                )
+
+            # Transform apex points
+            new_bow_apex = None
+            new_stern_apex = None
+
+            if self.bow_apex is not None:
+                new_bow_apex = Point3D(
+                    hull_length - self.bow_apex.x, self.bow_apex.y, self.bow_apex.z
+                )
+            if self.stern_apex is not None:
+                new_stern_apex = Point3D(
+                    hull_length - self.stern_apex.x, self.stern_apex.y, self.stern_apex.z
+                )
+
+            # Create new hull
+            new_hull = KayakHull(
+                origin=self.origin,
+                coordinate_system=target_system,
+                bow_apex=new_bow_apex,
+                stern_apex=new_stern_apex,
+            )
+
+            # Transform all profiles
+            for station, profile in self.profiles.items():
+                new_station = hull_length - station
+                # Create new points with transformed x-coordinates
+                new_points = [Point3D(new_station, pt.y, pt.z) for pt in profile.points]
+                # Create new profile with transformed station and points
+                new_profile = Profile(new_station, new_points)
+                new_hull.add_profile(new_profile)
+
+            return new_hull
+
+        else:
+            raise ValueError(
+                f"Coordinate system conversion from '{self.coordinate_system}' "
+                f"to '{target_system}' is not supported"
+            )
 
     def copy(self) -> "KayakHull":
         """

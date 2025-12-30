@@ -248,7 +248,7 @@ class TestKayakHull:
 
     def test_get_bow_station(self):
         """Test getting bow station."""
-        hull = KayakHull()
+        hull = KayakHull(coordinate_system="stern_origin")
         hull.add_profile(self.create_simple_profile(station=1.0))
         hull.add_profile(self.create_simple_profile(station=3.0))
         hull.add_profile(self.create_simple_profile(station=2.0))
@@ -257,7 +257,7 @@ class TestKayakHull:
 
     def test_get_stern_station(self):
         """Test getting stern station."""
-        hull = KayakHull()
+        hull = KayakHull(coordinate_system="stern_origin")
         hull.add_profile(self.create_simple_profile(station=1.0))
         hull.add_profile(self.create_simple_profile(station=3.0))
         hull.add_profile(self.create_simple_profile(station=2.0))

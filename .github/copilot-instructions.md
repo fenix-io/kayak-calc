@@ -60,3 +60,7 @@ The application calculates:
 - For every task, please create a detailed paln before impelementation.
 - Break down complex calculations into smaller, manageable functions.
 - Write all task to be implemented in a tasks.md file and get approval before starting coding.
+
+
+# Running commands
+- Every time that you need to run a python, pytest, sphynx or other commands that could indirectly call python environment, activate first the venv using: `source .venv/bin/activate`

@@ -567,8 +567,12 @@ def calculate_hull_cg_mass_component(
     # Determine stations to use
     if num_stations is not None:
         # Create evenly spaced stations
-        min_station = hull.get_stern_station()
-        max_station = hull.get_bow_station()
+        # Note: bow and stern positions depend on coordinate system,
+        # but we need min < max for integration
+        stern_station = hull.get_stern_station()
+        bow_station = hull.get_bow_station()
+        min_station = min(stern_station, bow_station)
+        max_station = max(stern_station, bow_station)
         stations = np.linspace(min_station, max_station, num_stations)
     else:
         # Use hull's existing stations
