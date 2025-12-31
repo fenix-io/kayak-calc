@@ -184,11 +184,9 @@ def validate_bow_stern_points(
     if isinstance(bow_stern_data, dict):
         # Single point format (legacy)
         points = [bow_stern_data]
-        is_array = False
     elif isinstance(bow_stern_data, list):
         # Multi-point array format
         points = bow_stern_data
-        is_array = True
         if len(points) == 0:
             errors.append(f"{name}: Array cannot be empty")
             return (False, errors)

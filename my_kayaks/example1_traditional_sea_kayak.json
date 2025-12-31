@@ -1,0 +1,206 @@
+{
+  "metadata": {
+    "name": "Traditional Sea Kayak",
+    "description": "Multi-point bow/stern with moderate rocker for good tracking and maneuverability",
+    "units": "m",
+    "coordinate_system": "bow_origin",
+    "water_density": 1025.0,
+    "length": 5.2,
+    "beam": 0.55
+  },
+  "bow": [
+    {
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.5,
+      "level": "gunwale"
+    },
+    {
+      "x": 0.15,
+      "y": 0.0,
+      "z": 0.1,
+      "level": "chine_upper"
+    },
+    {
+      "x": 0.25,
+      "y": 0.0,
+      "z": -0.05,
+      "level": "chine_lower"
+    },
+    {
+      "x": 0.45,
+      "y": 0.0,
+      "z": -0.18,
+      "level": "keel"
+    }
+  ],
+  "stern": [
+    {
+      "x": 5.2,
+      "y": 0.0,
+      "z": 0.48,
+      "level": "gunwale"
+    },
+    {
+      "x": 5.05,
+      "y": 0.0,
+      "z": 0.08,
+      "level": "chine_upper"
+    },
+    {
+      "x": 4.9,
+      "y": 0.0,
+      "z": -0.08,
+      "level": "chine_lower"
+    },
+    {
+      "x": 4.7,
+      "y": 0.0,
+      "z": -0.2,
+      "level": "keel"
+    }
+  ],
+  "profiles": [
+    {
+      "station": 0.65,
+      "points": [
+        {
+          "x": 0.65,
+          "y": 0.0,
+          "z": 0.4,
+          "level": "gunwale"
+        },
+        {
+          "x": 0.65,
+          "y": -0.22,
+          "z": 0.2,
+          "level": "chine_upper"
+        },
+        {
+          "x": 0.65,
+          "y": 0.22,
+          "z": 0.2,
+          "level": "chine_upper"
+        },
+        {
+          "x": 0.65,
+          "y": -0.24,
+          "z": 0.0,
+          "level": "chine_lower"
+        },
+        {
+          "x": 0.65,
+          "y": 0.24,
+          "z": 0.0,
+          "level": "chine_lower"
+        },
+        {
+          "x": 0.65,
+          "y": -0.2,
+          "z": -0.18,
+          "level": "keel"
+        },
+        {
+          "x": 0.65,
+          "y": 0.2,
+          "z": -0.18,
+          "level": "keel"
+        }
+      ]
+    },
+    {
+      "station": 2.6,
+      "points": [
+        {
+          "x": 2.6,
+          "y": 0.0,
+          "z": 0.45,
+          "level": "gunwale"
+        },
+        {
+          "x": 2.6,
+          "y": -0.27,
+          "z": 0.22,
+          "level": "chine_upper"
+        },
+        {
+          "x": 2.6,
+          "y": 0.27,
+          "z": 0.22,
+          "level": "chine_upper"
+        },
+        {
+          "x": 2.6,
+          "y": -0.275,
+          "z": 0.0,
+          "level": "chine_lower"
+        },
+        {
+          "x": 2.6,
+          "y": 0.275,
+          "z": 0.0,
+          "level": "chine_lower"
+        },
+        {
+          "x": 2.6,
+          "y": -0.25,
+          "z": -0.2,
+          "level": "keel"
+        },
+        {
+          "x": 2.6,
+          "y": 0.25,
+          "z": -0.2,
+          "level": "keel"
+        }
+      ]
+    },
+    {
+      "station": 4.55,
+      "points": [
+        {
+          "x": 4.55,
+          "y": 0.0,
+          "z": 0.42,
+          "level": "gunwale"
+        },
+        {
+          "x": 4.55,
+          "y": -0.23,
+          "z": 0.18,
+          "level": "chine_upper"
+        },
+        {
+          "x": 4.55,
+          "y": 0.23,
+          "z": 0.18,
+          "level": "chine_upper"
+        },
+        {
+          "x": 4.55,
+          "y": -0.25,
+          "z": -0.02,
+          "level": "chine_lower"
+        },
+        {
+          "x": 4.55,
+          "y": 0.25,
+          "z": -0.02,
+          "level": "chine_lower"
+        },
+        {
+          "x": 4.55,
+          "y": -0.22,
+          "z": -0.16,
+          "level": "keel"
+        },
+        {
+          "x": 4.55,
+          "y": 0.22,
+          "z": -0.16,
+          "level": "keel"
+        }
+      ]
+    }
+  ]
+}

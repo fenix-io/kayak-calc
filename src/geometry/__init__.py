@@ -21,6 +21,7 @@ from .interpolation import (
     create_symmetric_profile,
     resample_profile_uniform_y,
     resample_profile_uniform_arc,
+    create_profiles_for_multipoint_bow_stern,
 )
 from .transformations import (
     apply_heel,

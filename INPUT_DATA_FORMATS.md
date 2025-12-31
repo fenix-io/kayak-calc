@@ -99,18 +99,78 @@ The JSON format provides a complete, structured representation of the kayak hull
 
 **Automatic Conversion:** For consistent calculation direction (stern to bow), all loaded hull data is automatically converted to `stern_origin` coordinate system internally, regardless of the input coordinate system specified in the file.
 
-#### Bow and Stern Apex Points (Optional)
+#### Bow and Stern Points (Optional)
 
-Explicit bow and stern apex points define the exact geometry at the kayak ends:
+Bow and stern points define the exact geometry at the kayak ends. Two formats are supported:
+
+##### Format 1: Single Apex Point (Legacy)
+
+A single point at the bow/stern end (backward compatible):
+
+```json
+"bow": {"x": 0.0, "y": 0.0, "z": 0.45},
+"stern": {"x": 5.2, "y": 0.0, "z": 0.45}
+```
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `bow.x` | number | No* | Longitudinal position of bow apex |
-| `bow.y` | number | No* | Transverse position (typically 0.0 on centerline) |
+| `bow.y` | number | No* | Transverse position (must be 0.0 on centerline) |
 | `bow.z` | number | No* | Vertical position of bow apex |
 | `stern.x` | number | No* | Longitudinal position of stern apex |
-| `stern.y` | number | No* | Transverse position (typically 0.0 on centerline) |
+| `stern.y` | number | No* | Transverse position (must be 0.0 on centerline) |
 | `stern.z` | number | No* | Vertical position of stern apex |
+
+**Note:** Single apex points create a simple pyramid/cone closure from the nearest profile station to the apex.
+
+##### Format 2: Multi-Point Array (Recommended)
+
+Arrays of points defining bow/stern at multiple vertical levels (keel, chines, gunwale):
+
+```json
+"bow": [
+  {"x": 0.0, "y": 0.0, "z": 0.50, "level": "gunwale"},
+  {"x": 0.15, "y": 0.0, "z": 0.10, "level": "chine"},
+  {"x": 0.40, "y": 0.0, "z": -0.15, "level": "keel"}
+],
+"stern": [
+  {"x": 5.2, "y": 0.0, "z": 0.48, "level": "gunwale"},
+  {"x": 5.05, "y": 0.0, "z": 0.08, "level": "chine"},
+  {"x": 4.80, "y": 0.0, "z": -0.18, "level": "keel"}
+]
+```
+
+**Multi-Point Benefits:**
+- Better control over hull rocker (longitudinal curvature) at different heights
+- Independent control of keel, chine, and gunwale end points
+- More accurate representation of complex bow/stern shapes
+- Smoother interpolation to end points
+
+**Multi-Point Requirements:**
+1. All bow/stern points must have `y = 0.0` (on centerline)
+2. Number of bow/stern levels should correspond to profile structure
+3. Each level can have different x-coordinate (creating rocker variation)
+4. Points are interpolated from the nearest profile station
+
+**Level Matching - Two Approaches:**
+
+**Approach 1: Explicit Level Names (Optional)**
+Add `"level"` attribute to all points (bow/stern AND profiles):
+```json
+{"x": 0.0, "y": 0.0, "z": 0.45, "level": "gunwale"}
+```
+- **Pros:** Clear, self-documenting, order-independent
+- **Cons:** More verbose
+- **Rule:** If any bow/stern point has `"level"`, ALL profile points must have it too
+
+**Approach 2: Array Position Matching (Compact)**
+No `"level"` attribute - matching by array position:
+```json
+{"x": 0.0, "y": 0.0, "z": 0.45}
+```
+- **Pros:** Compact, less verbose
+- **Cons:** Requires consistent point ordering across all profiles
+- **Rule:** Points must be grouped by level (e.g., centerline first, then port/starboard pairs)
 
 **Note:** If bow/stern are not specified, they will be approximated from the first/last profiles. However, for accurate calculations, **explicit bow and stern points are strongly recommended** as each kayak has unique end geometry.
 
@@ -128,6 +188,9 @@ Explicit bow and stern apex points define the exact geometry at the kayak ends:
 | `x` | number | Yes | Longitudinal coordinate (must match station value) |
 | `y` | number | Yes | Transverse coordinate (port=negative, starboard=positive) |
 | `z` | number | Yes | Vertical coordinate (down=negative, up=positive) |
+| `level` | string | No | Optional level identifier (e.g., "gunwale", "chine", "keel"). Required for multi-point bow/stern with explicit level matching. |
+
+**Note:** The `level` attribute enables explicit matching between profile points and multi-point bow/stern arrays. If used in bow/stern points, it must be used consistently in all profile points.
 
 ### Complete JSON Example
 
@@ -209,6 +272,80 @@ Explicit bow and stern apex points define the exact geometry at the kayak ends:
 ```
 
 *Note: If metadata is omitted, default values will be applied automatically.*
+
+### Multi-Point Bow/Stern Example
+
+Example with multi-point bow/stern using explicit level names:
+
+```json
+{
+  "metadata": {
+    "name": "Sea Kayak with Rocker",
+    "units": "m",
+    "coordinate_system": "bow_origin",
+    "water_density": 1025.0,
+    "length": 5.2,
+    "beam": 0.55
+  },
+  "bow": [
+    {"x": 0.0, "y": 0.0, "z": 0.50, "level": "gunwale"},
+    {"x": 0.15, "y": 0.0, "z": 0.10, "level": "chine_upper"},
+    {"x": 0.25, "y": 0.0, "z": -0.05, "level": "chine_lower"},
+    {"x": 0.45, "y": 0.0, "z": -0.18, "level": "keel"}
+  ],
+  "stern": [
+    {"x": 5.2, "y": 0.0, "z": 0.48, "level": "gunwale"},
+    {"x": 5.05, "y": 0.0, "z": 0.08, "level": "chine_upper"},
+    {"x": 4.90, "y": 0.0, "z": -0.08, "level": "chine_lower"},
+    {"x": 4.70, "y": 0.0, "z": -0.20, "level": "keel"}
+  ],
+  "profiles": [
+    {
+      "station": 0.65,
+      "points": [
+        {"x": 0.65, "y": 0.0, "z": 0.40, "level": "gunwale"},
+        {"x": 0.65, "y": -0.22, "z": 0.20, "level": "chine_upper"},
+        {"x": 0.65, "y": 0.22, "z": 0.20, "level": "chine_upper"},
+        {"x": 0.65, "y": -0.24, "z": 0.0, "level": "chine_lower"},
+        {"x": 0.65, "y": 0.24, "z": 0.0, "level": "chine_lower"},
+        {"x": 0.65, "y": -0.20, "z": -0.18, "level": "keel"},
+        {"x": 0.65, "y": 0.20, "z": -0.18, "level": "keel"}
+      ]
+    },
+    {
+      "station": 2.6,
+      "points": [
+        {"x": 2.6, "y": 0.0, "z": 0.45, "level": "gunwale"},
+        {"x": 2.6, "y": -0.27, "z": 0.22, "level": "chine_upper"},
+        {"x": 2.6, "y": 0.27, "z": 0.22, "level": "chine_upper"},
+        {"x": 2.6, "y": -0.28, "z": 0.0, "level": "chine_lower"},
+        {"x": 2.6, "y": 0.28, "z": 0.0, "level": "chine_lower"},
+        {"x": 2.6, "y": -0.25, "z": -0.20, "level": "keel"},
+        {"x": 2.6, "y": 0.25, "z": -0.20, "level": "keel"}
+      ]
+    },
+    {
+      "station": 4.55,
+      "points": [
+        {"x": 4.55, "y": 0.0, "z": 0.42, "level": "gunwale"},
+        {"x": 4.55, "y": -0.23, "z": 0.18, "level": "chine_upper"},
+        {"x": 4.55, "y": 0.23, "z": 0.18, "level": "chine_upper"},
+        {"x": 4.55, "y": -0.25, "z": -0.02, "level": "chine_lower"},
+        {"x": 4.55, "y": 0.25, "z": -0.02, "level": "chine_lower"},
+        {"x": 4.55, "y": -0.22, "z": -0.16, "level": "keel"},
+        {"x": 4.55, "y": 0.22, "z": -0.16, "level": "keel"}
+      ]
+    }
+  ]
+}
+```
+
+**Key Features of This Example:**
+- Gunwale rocker: Different x-positions at bow (0.0) vs. profile (0.65) creates upward sweep
+- Keel extends further forward (0.45) than gunwale (0.0), creating realistic bow shape
+- Stern has similar but opposite arrangement for proper stern geometry
+- All levels consistently labeled across profiles and bow/stern points
+- Smooth interpolation will be generated between profiles and bow/stern points
 
 ---
 

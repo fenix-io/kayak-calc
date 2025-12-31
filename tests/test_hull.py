@@ -383,6 +383,207 @@ class TestKayakHull:
         assert z_coords.min() >= -0.8
         assert z_coords.max() <= 0.0
 
+    def test_coordinate_system_conversion_bow_to_stern(self):
+        """Test conversion from bow_origin to stern_origin."""
+        # Create a simple hull in bow_origin system
+        hull = KayakHull(coordinate_system="bow_origin")
+
+        # Add profiles at different stations
+        profile1 = Profile(
+            0.5, [Point3D(0.5, 0.0, 0.3), Point3D(0.5, -0.2, 0.1), Point3D(0.5, 0.2, 0.1)]
+        )
+        profile2 = Profile(
+            2.0, [Point3D(2.0, 0.0, 0.4), Point3D(2.0, -0.3, 0.2), Point3D(2.0, 0.3, 0.2)]
+        )
+        hull.add_profile(profile1)
+        hull.add_profile(profile2)
+
+        # Add bow and stern points
+        hull.bow_points = [Point3D(0.0, 0.0, 0.5), Point3D(0.1, 0.0, 0.2)]
+        hull.stern_points = [Point3D(3.0, 0.0, 0.4), Point3D(2.9, 0.0, 0.1)]
+
+        # Convert to stern_origin
+        converted = hull.convert_coordinate_system("stern_origin")
+
+        # Verify coordinate system changed
+        assert converted.coordinate_system == "stern_origin"
+
+        # Verify hull length is preserved
+        assert converted.length == hull.length
+
+        # Verify stations are transformed: x' = length - x
+        hull_length = hull.length
+        assert 2.0 in hull.profiles
+        assert (hull_length - 2.0) in converted.profiles
+        assert 0.5 in hull.profiles
+        assert (hull_length - 0.5) in converted.profiles
+
+        # Verify bow/stern points are transformed
+        assert converted.bow_points is not None
+        assert len(converted.bow_points) == 2
+        assert converted.bow_points[0].x == pytest.approx(hull_length - 0.0)
+        assert converted.bow_points[1].x == pytest.approx(hull_length - 0.1)
+        # y and z should be unchanged
+        assert converted.bow_points[0].y == 0.0
+        assert converted.bow_points[0].z == 0.5
+
+        assert converted.stern_points is not None
+        assert len(converted.stern_points) == 2
+        assert converted.stern_points[0].x == pytest.approx(hull_length - 3.0)
+        assert converted.stern_points[1].x == pytest.approx(hull_length - 2.9)
+
+    def test_coordinate_system_conversion_stern_to_bow(self):
+        """Test conversion from stern_origin to bow_origin."""
+        # Create a simple hull in stern_origin system
+        hull = KayakHull(coordinate_system="stern_origin")
+
+        # Add profiles
+        profile1 = Profile(
+            1.0, [Point3D(1.0, 0.0, 0.3), Point3D(1.0, -0.2, 0.1), Point3D(1.0, 0.2, 0.1)]
+        )
+        hull.add_profile(profile1)
+
+        # Add bow and stern points
+        hull.bow_points = [Point3D(3.0, 0.0, 0.5)]
+        hull.stern_points = [Point3D(0.0, 0.0, 0.4)]
+
+        # Convert to bow_origin
+        converted = hull.convert_coordinate_system("bow_origin")
+
+        # Verify coordinate system changed
+        assert converted.coordinate_system == "bow_origin"
+
+        # Verify transformation
+        hull_length = hull.length
+        assert converted.bow_points[0].x == pytest.approx(hull_length - 3.0)
+        assert converted.stern_points[0].x == pytest.approx(hull_length - 0.0)
+
+    def test_coordinate_system_conversion_preserves_level_attribute(self):
+        """Test that level attributes are preserved during coordinate conversion."""
+        hull = KayakHull(coordinate_system="bow_origin")
+
+        # Add profile with level attributes
+        profile = Profile(
+            1.0,
+            [
+                Point3D(1.0, 0.0, 0.4, level="gunwale"),
+                Point3D(1.0, -0.2, 0.1, level="chine"),
+                Point3D(1.0, 0.2, 0.1, level="chine"),
+                Point3D(1.0, 0.0, -0.1, level="keel"),
+            ],
+        )
+        hull.add_profile(profile)
+
+        # Add bow/stern points with level attributes
+        hull.bow_points = [
+            Point3D(0.0, 0.0, 0.5, level="gunwale"),
+            Point3D(0.1, 0.0, 0.2, level="chine"),
+            Point3D(0.2, 0.0, -0.1, level="keel"),
+        ]
+        hull.stern_points = [
+            Point3D(3.0, 0.0, 0.4, level="gunwale"),
+            Point3D(2.9, 0.0, 0.1, level="chine"),
+            Point3D(2.8, 0.0, -0.2, level="keel"),
+        ]
+
+        # Convert coordinate system
+        converted = hull.convert_coordinate_system("stern_origin")
+
+        # Verify level attributes are preserved
+        assert converted.bow_points[0].level == "gunwale"
+        assert converted.bow_points[1].level == "chine"
+        assert converted.bow_points[2].level == "keel"
+
+        assert converted.stern_points[0].level == "gunwale"
+        assert converted.stern_points[1].level == "chine"
+        assert converted.stern_points[2].level == "keel"
+
+        # Verify profile point levels are preserved
+        hull_length = hull.length
+        new_station = hull_length - 1.0
+        converted_profile = converted.profiles[new_station]
+        assert converted_profile.points[0].level == "gunwale"
+        assert converted_profile.points[1].level == "chine"
+        assert converted_profile.points[2].level == "chine"
+        assert converted_profile.points[3].level == "keel"
+
+    def test_coordinate_system_conversion_preserves_point_order(self):
+        """Test that point order is preserved during coordinate conversion."""
+        hull = KayakHull(coordinate_system="bow_origin")
+
+        # Add bow points in specific order
+        hull.bow_points = [
+            Point3D(0.0, 0.0, 0.5, level="gunwale"),
+            Point3D(0.1, 0.0, 0.2, level="chine_upper"),
+            Point3D(0.2, 0.0, 0.0, level="chine_lower"),
+            Point3D(0.3, 0.0, -0.1, level="keel"),
+        ]
+
+        hull.stern_points = [
+            Point3D(3.0, 0.0, 0.4, level="gunwale"),
+            Point3D(2.9, 0.0, 0.1, level="chine_upper"),
+            Point3D(2.8, 0.0, -0.05, level="chine_lower"),
+            Point3D(2.7, 0.0, -0.2, level="keel"),
+        ]
+
+        # Add profile with ordered points
+        profile = Profile(
+            1.0,
+            [
+                Point3D(1.0, 0.0, 0.4, level="gunwale"),
+                Point3D(1.0, -0.2, 0.2, level="chine_upper"),
+                Point3D(1.0, 0.2, 0.2, level="chine_upper"),
+                Point3D(1.0, -0.25, 0.0, level="chine_lower"),
+                Point3D(1.0, 0.25, 0.0, level="chine_lower"),
+                Point3D(1.0, 0.0, -0.15, level="keel"),
+            ],
+        )
+        hull.add_profile(profile)
+
+        # Convert coordinate system
+        converted = hull.convert_coordinate_system("stern_origin")
+
+        # Verify bow points order is preserved (not reversed)
+        assert len(converted.bow_points) == 4
+        assert converted.bow_points[0].level == "gunwale"
+        assert converted.bow_points[1].level == "chine_upper"
+        assert converted.bow_points[2].level == "chine_lower"
+        assert converted.bow_points[3].level == "keel"
+
+        # Verify stern points order is preserved (not reversed)
+        assert len(converted.stern_points) == 4
+        assert converted.stern_points[0].level == "gunwale"
+        assert converted.stern_points[1].level == "chine_upper"
+        assert converted.stern_points[2].level == "chine_lower"
+        assert converted.stern_points[3].level == "keel"
+
+        # Verify profile points order is preserved
+        hull_length = hull.length
+        new_station = hull_length - 1.0
+        converted_profile = converted.profiles[new_station]
+        assert len(converted_profile.points) == 6
+        assert converted_profile.points[0].level == "gunwale"
+        assert converted_profile.points[1].level == "chine_upper"
+        assert converted_profile.points[2].level == "chine_upper"
+        assert converted_profile.points[3].level == "chine_lower"
+        assert converted_profile.points[4].level == "chine_lower"
+        assert converted_profile.points[5].level == "keel"
+
+    def test_coordinate_system_conversion_no_op(self):
+        """Test that converting to same system returns a copy."""
+        hull = KayakHull(coordinate_system="bow_origin")
+        hull.bow_points = [Point3D(0.0, 0.0, 0.5)]
+        profile = Profile(1.0, [Point3D(1.0, 0.0, 0.3)])
+        hull.add_profile(profile)
+
+        # Convert to same system
+        converted = hull.convert_coordinate_system("bow_origin")
+
+        # Should be a copy, not the same object
+        assert converted is not hull
+        assert converted.coordinate_system == hull.coordinate_system
+        assert len(converted.profiles) == len(hull.profiles)
+
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

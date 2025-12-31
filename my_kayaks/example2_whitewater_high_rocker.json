@@ -1,0 +1,158 @@
+{
+  "metadata": {
+    "name": "Whitewater Kayak - High Rocker",
+    "description": "Multi-point bow/stern with extreme rocker for maximum maneuverability",
+    "units": "m",
+    "coordinate_system": "bow_origin",
+    "water_density": 1000.0,
+    "length": 3.5,
+    "beam": 0.62
+  },
+  "bow": [
+    {
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.6,
+      "level": "gunwale"
+    },
+    {
+      "x": 0.1,
+      "y": 0.0,
+      "z": 0.2,
+      "level": "chine"
+    },
+    {
+      "x": 0.25,
+      "y": 0.0,
+      "z": -0.05,
+      "level": "keel"
+    }
+  ],
+  "stern": [
+    {
+      "x": 3.5,
+      "y": 0.0,
+      "z": 0.58,
+      "level": "gunwale"
+    },
+    {
+      "x": 3.4,
+      "y": 0.0,
+      "z": 0.18,
+      "level": "chine"
+    },
+    {
+      "x": 3.25,
+      "y": 0.0,
+      "z": -0.08,
+      "level": "keel"
+    }
+  ],
+  "profiles": [
+    {
+      "station": 0.5,
+      "points": [
+        {
+          "x": 0.5,
+          "y": 0.0,
+          "z": 0.45,
+          "level": "gunwale"
+        },
+        {
+          "x": 0.5,
+          "y": -0.28,
+          "z": 0.12,
+          "level": "chine"
+        },
+        {
+          "x": 0.5,
+          "y": 0.28,
+          "z": 0.12,
+          "level": "chine"
+        },
+        {
+          "x": 0.5,
+          "y": -0.26,
+          "z": -0.15,
+          "level": "keel"
+        },
+        {
+          "x": 0.5,
+          "y": 0.26,
+          "z": -0.15,
+          "level": "keel"
+        }
+      ]
+    },
+    {
+      "station": 1.75,
+      "points": [
+        {
+          "x": 1.75,
+          "y": 0.0,
+          "z": 0.48,
+          "level": "gunwale"
+        },
+        {
+          "x": 1.75,
+          "y": -0.31,
+          "z": 0.15,
+          "level": "chine"
+        },
+        {
+          "x": 1.75,
+          "y": 0.31,
+          "z": 0.15,
+          "level": "chine"
+        },
+        {
+          "x": 1.75,
+          "y": -0.3,
+          "z": -0.18,
+          "level": "keel"
+        },
+        {
+          "x": 1.75,
+          "y": 0.3,
+          "z": -0.18,
+          "level": "keel"
+        }
+      ]
+    },
+    {
+      "station": 3.0,
+      "points": [
+        {
+          "x": 3.0,
+          "y": 0.0,
+          "z": 0.46,
+          "level": "gunwale"
+        },
+        {
+          "x": 3.0,
+          "y": -0.29,
+          "z": 0.13,
+          "level": "chine"
+        },
+        {
+          "x": 3.0,
+          "y": 0.29,
+          "z": 0.13,
+          "level": "chine"
+        },
+        {
+          "x": 3.0,
+          "y": -0.27,
+          "z": -0.16,
+          "level": "keel"
+        },
+        {
+          "x": 3.0,
+          "y": 0.27,
+          "z": -0.16,
+          "level": "keel"
+        }
+      ]
+    }
+  ]
+}

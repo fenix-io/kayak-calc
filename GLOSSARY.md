@@ -10,10 +10,11 @@ This glossary defines technical terms used throughout the kayak calculation libr
 ## A
 
 ### Apex Point
-The point at the extreme bow (front) or stern (rear) of the kayak where the hull tapers to a single point. Used in interpolation to create smooth transitions from full profiles to the narrow ends.
+A single point at the extreme bow (front) or stern (rear) of the kayak where the hull tapers to a point. Legacy format for defining bow/stern geometry. Creates a simple pyramid/cone closure from the nearest profile station.
 
-**Context:** Geometry, Interpolation  
-**Related Terms:** Bow Point, Stern Point, Profile
+**Context:** Geometry, Interpolation, Legacy Format  
+**Related Terms:** Bow Point, Stern Point, Multi-Point Bow/Stern, Profile  
+**Note:** Multi-point bow/stern arrays provide more control over end geometry than single apex points.
 
 ### Area Under Curve
 The integral of the GZ curve over a range of heel angles, representing dynamic stability or the energy required to capsize the vessel. Measured in meter-radians (m·rad).
@@ -327,6 +328,13 @@ The x-coordinate of the center of gravity, indicating the fore-aft position of t
 ### Lean
 See **Heel**
 
+### Level
+A horizontal classification of points on a hull profile, such as "keel", "chine", "gunwale". Used in multi-point bow/stern definitions to match bow/stern points with corresponding profile points at the same vertical position. Enables independent control of rocker at different heights.
+
+**Context:** Geometry, Multi-Point Bow/Stern  
+**Related Terms:** Chine, Gunwale, Keel, Multi-Point Bow/Stern, Profile  
+**Example Levels:** "keel", "chine_lower", "chine_upper", "gunwale"
+
 ### Length
 The overall length of the kayak from bow to stern. Longer kayaks generally track better and have higher maximum speed.
 
@@ -373,6 +381,14 @@ The rotational effect of a force, equal to force times perpendicular distance. I
 **Formula:** Moment = Force × Distance  
 **Context:** Mechanics, Stability  
 **Related Terms:** Righting Moment, Torque, GZ
+
+### Multi-Point Bow/Stern
+An array of points defining bow or stern geometry at multiple vertical levels (e.g., keel, chines, gunwale) rather than a single apex point. Enables independent control of rocker curvature at different heights, creating more realistic and complex end shapes.
+
+**Format:** Array of Point3D objects with optional level attributes  
+**Context:** Geometry, Hull Definition, Advanced Features  
+**Related Terms:** Apex Point, Level, Rocker, Bow, Stern, Profile  
+**Benefits:** Better control over rocker, more accurate end geometry, smoother transitions
 
 ---
 

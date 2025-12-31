@@ -369,26 +369,87 @@ def plot_hull_3d(
         ax.plot(x_coords, y_coords, z_coords, color=hull_color, linewidth=1.5, alpha=hull_alpha)
 
     # Plot longitudinal lines connecting profiles
-    # Find maximum number of points across all profiles
-    max_points = max(hull.get_profile(s).num_points for s in stations)
-
-    # For each point index, connect across profiles
-    for point_idx in range(max_points):
-        x_line = []
-        y_line = []
-        z_line = []
-
-        for station in stations:
-            profile = hull.get_profile(station)
-            if point_idx < profile.num_points:
+    # Group points by approximate z-level across all profiles to handle varying point counts
+    # When profiles have different numbers of points (e.g., chines disappearing at bow/stern),
+    # we need to match by level (z-coordinate) rather than by index
+    
+    # Collect all unique z-levels across all profiles
+    all_z_levels = set()
+    for station in stations:
+        profile = hull.get_profile(station)
+        for pt in profile.points:
+            all_z_levels.add(round(pt.z, 3))  # Round to avoid floating point issues
+    
+    z_tolerance = 0.05  # 5cm tolerance for matching z-levels
+    
+    # For each z-level, connect points across profiles
+    for target_z in sorted(all_z_levels):
+        # Separate port, centerline, and starboard
+        for side in ['port', 'centerline', 'starboard']:
+            x_line = []
+            y_line = []
+            z_line = []
+            
+            for station in stations:
+                profile = hull.get_profile(station)
                 transformed_points = transform_points(profile.points)
-                pt = transformed_points[point_idx]
-                x_line.append(pt.x)
-                y_line.append(pt.y)
-                z_line.append(pt.z)
+                
+                # Find point(s) at this z-level on this side
+                matching_pts = []
+                for pt in transformed_points:
+                    if abs(pt.z - target_z) < z_tolerance:
+                        if side == 'centerline' and abs(pt.y) < 1e-6:
+                            matching_pts.append(pt)
+                        elif side == 'port' and pt.y < -1e-6:
+                            matching_pts.append(pt)
+                        elif side == 'starboard' and pt.y > 1e-6:
+                            matching_pts.append(pt)
+                
+                # Use the matching point if found
+                if matching_pts:
+                    pt = matching_pts[0]  # Use first match if multiple
+                    x_line.append(pt.x)
+                    y_line.append(pt.y)
+                    z_line.append(pt.z)
+            
+            # Plot line if we have at least 2 points
+            if len(x_line) > 1:
+                ax.plot(x_line, y_line, z_line, color=hull_color, linewidth=1, alpha=hull_alpha * 0.5)
 
-        if len(x_line) > 1:
-            ax.plot(x_line, y_line, z_line, color=hull_color, linewidth=1, alpha=hull_alpha * 0.5)
+    # Plot bow/stern points if available
+    if hull.bow_points is not None:
+        bow_pts = transform_points(hull.bow_points)
+        bow_x = [pt.x for pt in bow_pts]
+        bow_y = [pt.y for pt in bow_pts]
+        bow_z = [pt.z for pt in bow_pts]
+        ax.scatter(
+            bow_x,
+            bow_y,
+            bow_z,
+            c="red",
+            s=100,
+            marker="o",
+            label="Bow points",
+            edgecolors="black",
+            linewidths=1.5,
+        )
+
+    if hull.stern_points is not None:
+        stern_pts = transform_points(hull.stern_points)
+        stern_x = [pt.x for pt in stern_pts]
+        stern_y = [pt.y for pt in stern_pts]
+        stern_z = [pt.z for pt in stern_pts]
+        ax.scatter(
+            stern_x,
+            stern_y,
+            stern_z,
+            c="red",
+            s=100,
+            marker="s",
+            label="Stern points",
+            edgecolors="black",
+            linewidths=1.5,
+        )
 
     # Show waterline plane if requested
     if show_waterline_plane:
@@ -446,6 +507,375 @@ def plot_hull_3d(
 
     # Set aspect ratio
     ax.set_box_aspect([x_range / max_range, y_range / max_range, z_range / max_range])
+
+    return ax
+
+
+def plot_profile_view(
+    hull: KayakHull,
+    waterline_z: float = 0.0,
+    show_bow_stern: bool = True,
+    show_stations: bool = True,
+    ax: Optional[Axes] = None,
+    figsize: Tuple[float, float] = (12, 6),
+    **kwargs,
+) -> Axes:
+    """
+    Plot profile view (side view) of the hull showing rocker lines.
+
+    This view shows the longitudinal profile with:
+    - Multiple rocker lines for different levels (keel, chines, gunwale)
+    - Bow and stern points (single or multi-point)
+    - Station locations
+    - Waterline reference
+
+    Args:
+        hull: KayakHull object to plot
+        waterline_z: Z-coordinate of waterline (default: 0.0)
+        show_bow_stern: Whether to show bow/stern points (default: True)
+        show_stations: Whether to show station markers (default: True)
+        ax: Optional matplotlib axes (creates new if None)
+        figsize: Figure size as (width, height) tuple
+        **kwargs: Additional customization options:
+            - hull_color: Color for hull lines (default: 'blue')
+            - bow_stern_color: Color for bow/stern points (default: 'red')
+            - waterline_color: Color for waterline (default: 'cyan')
+            - station_color: Color for station markers (default: 'gray')
+            - grid: Whether to show grid (default: True)
+
+    Returns:
+        matplotlib Axes object
+
+    Example:
+        >>> hull = KayakHull()
+        >>> # ... add profiles to hull ...
+        >>> ax = plot_profile_view(hull, waterline_z=-0.2)
+        >>> plt.show()
+    """
+    # Create figure and axes if not provided
+    if ax is None:
+        fig, ax = plt.subplots(figsize=figsize)
+
+    # Extract customization options
+    hull_color = kwargs.get("hull_color", "blue")
+    bow_stern_color = kwargs.get("bow_stern_color", "red")
+    waterline_color = kwargs.get("waterline_color", "cyan")
+    station_color = kwargs.get("station_color", "gray")
+    show_grid = kwargs.get("grid", True)
+
+    # Get sorted stations
+    stations = hull.get_stations()
+    if len(stations) == 0:
+        raise ValueError("Hull has no profiles to plot")
+
+    # Group points by level to create rocker lines
+    # First, collect all unique levels from profiles
+    all_levels = set()
+    for station in stations:
+        profile = hull.get_profile(station)
+        for pt in profile.points:
+            if pt.level is not None:
+                all_levels.add(pt.level)
+
+    # If levels are used, plot rocker lines for each level
+    if all_levels:
+        # Plot rocker lines for each level
+        for level in sorted(all_levels):
+            x_coords = []
+            z_coords = []
+
+            for station in stations:
+                profile = hull.get_profile(station)
+                # Find points at this level (centerline or average of port/starboard)
+                level_points = [pt for pt in profile.points if pt.level == level]
+                if level_points:
+                    # Use centerline point if available, otherwise average
+                    centerline_pts = [pt for pt in level_points if abs(pt.y) < 1e-6]
+                    if centerline_pts:
+                        pt = centerline_pts[0]
+                    else:
+                        # Average port and starboard
+                        avg_z = sum(pt.z for pt in level_points) / len(level_points)
+                        pt = Point3D(station, 0.0, avg_z)
+
+                    x_coords.append(pt.x)
+                    z_coords.append(pt.z)
+
+            if x_coords:
+                ax.plot(
+                    x_coords,
+                    z_coords,
+                    color=hull_color,
+                    linewidth=1.5,
+                    label=f"Level: {level}",
+                    marker="o",
+                    markersize=3,
+                )
+    else:
+        # No levels, plot centerline points and upper/lower bounds
+        x_coords_center = []
+        z_coords_center = []
+        x_coords_top = []
+        z_coords_top = []
+        x_coords_bottom = []
+        z_coords_bottom = []
+
+        for station in stations:
+            profile = hull.get_profile(station)
+            z_values = [pt.z for pt in profile.points]
+
+            # Find centerline point
+            centerline_pts = [pt for pt in profile.points if abs(pt.y) < 1e-6]
+            if centerline_pts:
+                x_coords_center.append(station)
+                z_coords_center.append(centerline_pts[0].z)
+
+            # Find top and bottom
+            x_coords_top.append(station)
+            z_coords_top.append(max(z_values))
+            x_coords_bottom.append(station)
+            z_coords_bottom.append(min(z_values))
+
+        if x_coords_center:
+            ax.plot(
+                x_coords_center,
+                z_coords_center,
+                color=hull_color,
+                linewidth=2,
+                label="Centerline",
+                marker="o",
+                markersize=3,
+            )
+        ax.plot(
+            x_coords_top,
+            z_coords_top,
+            color=hull_color,
+            linewidth=1.5,
+            label="Upper bound",
+            marker="o",
+            markersize=3,
+            linestyle="--",
+        )
+        ax.plot(
+            x_coords_bottom,
+            z_coords_bottom,
+            color=hull_color,
+            linewidth=1.5,
+            label="Lower bound",
+            marker="o",
+            markersize=3,
+            linestyle="--",
+        )
+
+    # Show bow/stern points if requested and available
+    if show_bow_stern:
+        if hull.bow_points is not None:
+            bow_x = [pt.x for pt in hull.bow_points]
+            bow_z = [pt.z for pt in hull.bow_points]
+            ax.plot(
+                bow_x,
+                bow_z,
+                "o",
+                color=bow_stern_color,
+                markersize=8,
+                label="Bow points",
+                markeredgecolor="black",
+                markeredgewidth=1,
+            )
+
+        if hull.stern_points is not None:
+            stern_x = [pt.x for pt in hull.stern_points]
+            stern_z = [pt.z for pt in hull.stern_points]
+            ax.plot(
+                stern_x,
+                stern_z,
+                "s",
+                color=bow_stern_color,
+                markersize=8,
+                label="Stern points",
+                markeredgecolor="black",
+                markeredgewidth=1,
+            )
+
+    # Show station markers if requested
+    if show_stations:
+        for station in stations:
+            ax.axvline(x=station, color=station_color, linestyle=":", alpha=0.3, linewidth=0.5)
+
+    # Show waterline
+    ax.axhline(
+        y=waterline_z,
+        color=waterline_color,
+        linestyle="--",
+        linewidth=2,
+        label="Waterline",
+        alpha=0.7,
+    )
+
+    # Set labels and title
+    ax.set_xlabel("Longitudinal (x) [m]", fontsize=10)
+    ax.set_ylabel("Vertical (z) [m]", fontsize=10)
+    ax.set_title("Profile View (Side View)", fontsize=12, fontweight="bold")
+
+    # Grid
+    if show_grid:
+        ax.grid(True, alpha=0.3)
+
+    # Legend
+    ax.legend(loc="best", fontsize=8)
+
+    # Equal aspect ratio for realistic proportions
+    ax.set_aspect("equal", adjustable="box")
+
+    return ax
+
+
+def plot_plan_view(
+    hull: KayakHull,
+    z_level: Optional[float] = None,
+    show_bow_stern: bool = True,
+    show_stations: bool = True,
+    ax: Optional[Axes] = None,
+    figsize: Tuple[float, float] = (12, 6),
+    **kwargs,
+) -> Axes:
+    """
+    Plot plan view (top view) of the hull showing beam at different stations.
+
+    This view shows the hull from above with:
+    - Hull outline at specified z-level (or maximum beam if not specified)
+    - Bow and stern points
+    - Station locations
+
+    Args:
+        hull: KayakHull object to plot
+        z_level: Z-coordinate level to slice (default: None, uses waterline or finds max beam)
+        show_bow_stern: Whether to show bow/stern points (default: True)
+        show_stations: Whether to show station markers (default: True)
+        ax: Optional matplotlib axes (creates new if None)
+        figsize: Figure size as (width, height) tuple
+        **kwargs: Additional customization options:
+            - hull_color: Color for hull outline (default: 'blue')
+            - bow_stern_color: Color for bow/stern points (default: 'red')
+            - station_color: Color for station markers (default: 'gray')
+            - grid: Whether to show grid (default: True)
+
+    Returns:
+        matplotlib Axes object
+
+    Example:
+        >>> hull = KayakHull()
+        >>> # ... add profiles to hull ...
+        >>> ax = plot_plan_view(hull, z_level=0.0)
+        >>> plt.show()
+    """
+    # Create figure and axes if not provided
+    if ax is None:
+        fig, ax = plt.subplots(figsize=figsize)
+
+    # Extract customization options
+    hull_color = kwargs.get("hull_color", "blue")
+    bow_stern_color = kwargs.get("bow_stern_color", "red")
+    station_color = kwargs.get("station_color", "gray")
+    show_grid = kwargs.get("grid", True)
+
+    # Get sorted stations
+    stations = hull.get_stations()
+    if len(stations) == 0:
+        raise ValueError("Hull has no profiles to plot")
+
+    # For each station, find the max beam (or beam at specified z_level)
+    port_x = []
+    port_y = []
+    starboard_x = []
+    starboard_y = []
+
+    for station in stations:
+        profile = hull.get_profile(station)
+
+        if z_level is not None:
+            # Find points near specified z-level
+            points_near_level = [pt for pt in profile.points if abs(pt.z - z_level) < 0.05]
+            if points_near_level:
+                y_coords = [pt.y for pt in points_near_level]
+            else:
+                y_coords = [pt.y for pt in profile.points]
+        else:
+            # Use all points (max beam)
+            y_coords = [pt.y for pt in profile.points]
+
+        if y_coords:
+            port_y.append(min(y_coords))
+            port_x.append(station)
+            starboard_y.append(max(y_coords))
+            starboard_x.append(station)
+
+    # Plot port and starboard sides
+    ax.plot(port_x, port_y, color=hull_color, linewidth=2, label="Port", marker="o", markersize=3)
+    ax.plot(
+        starboard_x,
+        starboard_y,
+        color=hull_color,
+        linewidth=2,
+        label="Starboard",
+        marker="o",
+        markersize=3,
+    )
+
+    # Show bow/stern points if requested
+    if show_bow_stern:
+        if hull.bow_points is not None:
+            bow_x = [pt.x for pt in hull.bow_points]
+            bow_y = [pt.y for pt in hull.bow_points]  # Should all be 0.0
+            ax.plot(
+                bow_x,
+                bow_y,
+                "o",
+                color=bow_stern_color,
+                markersize=8,
+                label="Bow points",
+                markeredgecolor="black",
+                markeredgewidth=1,
+            )
+
+        if hull.stern_points is not None:
+            stern_x = [pt.x for pt in hull.stern_points]
+            stern_y = [pt.y for pt in hull.stern_points]  # Should all be 0.0
+            ax.plot(
+                stern_x,
+                stern_y,
+                "s",
+                color=bow_stern_color,
+                markersize=8,
+                label="Stern points",
+                markeredgecolor="black",
+                markeredgewidth=1,
+            )
+
+    # Show station markers if requested
+    if show_stations:
+        for station in stations:
+            ax.axvline(x=station, color=station_color, linestyle=":", alpha=0.3, linewidth=0.5)
+
+    # Show centerline
+    ax.axhline(y=0.0, color="black", linestyle="-", linewidth=1, alpha=0.5, label="Centerline")
+
+    # Set labels and title
+    ax.set_xlabel("Longitudinal (x) [m]", fontsize=10)
+    ax.set_ylabel("Transverse (y) [m]", fontsize=10)
+
+    level_str = f" at z={z_level:.2f}m" if z_level is not None else ""
+    ax.set_title(f"Plan View (Top View){level_str}", fontsize=12, fontweight="bold")
+
+    # Grid
+    if show_grid:
+        ax.grid(True, alpha=0.3)
+
+    # Legend
+    ax.legend(loc="best", fontsize=8)
+
+    # Equal aspect ratio for realistic proportions
+    ax.set_aspect("equal", adjustable="box")
 
     return ax
 

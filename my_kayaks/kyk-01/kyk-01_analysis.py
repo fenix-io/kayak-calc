@@ -3,6 +3,7 @@ from src.io import load_hull_from_json
 from src.hydrostatics import calculate_displacement, calculate_hull_cg_mass_component, calculate_center_of_buoyancy
 from src.stability import StabilityAnalyzer
 from src.visualization import plot_stability_curve, plot_hull_3d, plot_righting_moment_curve
+from src.geometry import create_profiles_for_multipoint_bow_stern
 import matplotlib.pyplot as plt
 import os
 
@@ -15,6 +16,57 @@ script_dir = os.path.dirname(os.path.abspath(__file__))
 
 # Load your hull data
 hull = load_hull_from_json(f'{script_dir}/kyk-01_hull.json')
+
+print(f"\nHull summary (before adding bow/stern profiles):")
+print(f"Length: {hull.length} m, Beam: {hull.max_beam} m")
+print(f"Number of stations: {len(hull.profiles)}")
+print(f"Bow points: {len(hull.bow_points)}")
+print(f"Stern points: {len(hull.stern_points)}")
+
+# Add profiles at each non-apex bow/stern point location using library function
+# Get original data stations BEFORE adding any profiles
+original_stations = sorted(hull.get_stations())
+first_data_station = original_stations[0]
+last_data_station = original_stations[-1]
+
+if len(hull.bow_points) > 1:
+    print("\nCreating bow profiles for multi-point bow definition...")
+    # After coordinate conversion: bow apex is at largest x
+    # Get the last original data station (closest to bow)
+    last_profile = hull.get_profile(last_data_station, interpolate=False)
+    print(f"  Last data station (closest to bow) at x={last_data_station:.2f}")
+    
+    # Create profiles at each bow point (except apex)
+    bow_profiles = create_profiles_for_multipoint_bow_stern(
+        end_profile=last_profile,
+        end_points=hull.bow_points,
+        is_bow=True
+    )
+    
+    for profile in bow_profiles:
+        hull.add_profile(profile)
+        print(f"  Added profile at x={profile.station:.2f}")
+
+if len(hull.stern_points) > 1:
+    print("Creating stern profiles for multi-point stern definition...")
+    # After coordinate conversion: stern apex is at smallest x (x=0)
+    # Get the first original data station (closest to stern)
+    first_profile = hull.get_profile(first_data_station, interpolate=False)
+    print(f"  First data station (closest to stern) at x={first_data_station:.2f}")
+    
+    # Create profiles at each stern point (except apex)
+    stern_profiles = create_profiles_for_multipoint_bow_stern(
+        end_profile=first_profile,
+        end_points=hull.stern_points,
+        is_bow=False
+    )
+    
+    for profile in stern_profiles:
+        hull.add_profile(profile)
+        print(f"  Added profile at x={profile.station:.2f}")
+
+print(f"\nHull summary (after adding bow/stern profiles):")
+print(f"Number of stations: {len(hull.profiles)}")
 
 # Check hull capacity first
 from src.hydrostatics import calculate_displacement as calc_disp

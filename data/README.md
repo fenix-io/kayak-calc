@@ -9,6 +9,7 @@ This directory contains sample kayak hull geometries for testing, learning, and 
 ### 1. sample_hull_simple.json
 ### 2. sample_hull_simple.csv  
 ### 3. sample_hull_kayak.json
+### 4. sample_hull_multipoint_bow_stern.json
 
 ---
 
@@ -322,6 +323,66 @@ Before using a new hull file:
 
 - `sample_hull_simple.*` - Created for Phase 2 (basic testing)
 - `sample_hull_kayak.json` - Created for Phase 5 (realistic analysis)
+- `sample_hull_multipoint_bow_stern.json` - Created for Phase 9 (multi-point bow/stern demonstration)
+
+---
+
+### 4. sample_hull_multipoint_bow_stern.json
+
+**Type:** Realistic sea kayak with multi-point bow/stern  
+**Format:** JSON  
+**Purpose:** Demonstrating multi-point bow/stern arrays with rocker control
+
+**Description:**
+A sea kayak hull using the new multi-point bow/stern format. Instead of single apex points, the bow and stern are defined by arrays of points at different vertical levels (gunwale, chines, keel).
+
+**Characteristics:**
+- **Length:** 5.2 meters
+- **Beam:** 0.55 meters
+- **Profiles:** 5 cross-sections with explicit level attributes
+- **Bow Points:** 4 levels (gunwale at x=0.0, keel at x=0.45)
+- **Stern Points:** 4 levels (gunwale at x=5.2, keel at x=4.70)
+- **Shape:** Traditional sea kayak with pronounced rocker
+- **Levels:** "gunwale", "chine_upper", "chine_lower", "keel"
+
+**Key Features:**
+1. **Independent rocker curves** - Each level (keel, chines, gunwale) has its own longitudinal position at bow/stern
+2. **Realistic end shape** - Keel extends further forward (x=0.45) than gunwale (x=0.0), creating proper bow shape
+3. **Explicit level matching** - All points have "level" attribute for clear correspondence
+4. **Smooth interpolation** - System generates intermediate profiles between last station and bow/stern points
+
+**Rocker Configuration:**
+- **Bow:** Gunwale rises to z=0.50, keel extends to x=0.45 at z=-0.18
+- **Stern:** Gunwale at z=0.48, keel ends at x=4.70 at z=-0.20
+- **Effect:** More maneuverable than flat keel, good tracking with moderate rocker
+
+**Usage Example:**
+```python
+from src.io import load_kayak_from_json
+
+# Load hull with multi-point bow/stern
+hull = load_kayak_from_json("data/sample_hull_multipoint_bow_stern.json")
+
+# System automatically interpolates between profiles and bow/stern points
+print(f"Number of profiles after interpolation: {hull.num_profiles}")
+print(f"Bow points: {len(hull.bow_points)}")
+print(f"Stern points: {len(hull.stern_points)}")
+
+# Visualize to see rocker lines
+from src.visualization import plot_profile_view, plot_plan_view, plot_hull_3d
+import matplotlib.pyplot as plt
+
+fig, axes = plt.subplots(1, 2, figsize=(14, 5))
+plot_profile_view(hull, ax=axes[0])  # Side view showing rocker
+plot_plan_view(hull, ax=axes[1])     # Top view showing beam
+plt.show()
+```
+
+**Learning Points:**
+- How to define multi-point bow/stern arrays
+- Using level attributes for explicit matching
+- Creating realistic rocker curves
+- Visualizing rocker lines at different levels
 
 ---
 
