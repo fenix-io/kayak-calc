@@ -23,8 +23,10 @@ class KayakHull:
         profiles (Dict[float, Profile]): Dictionary mapping station positions to profiles
         origin (Point3D): Reference origin point on centerline
         coordinate_system (str): Coordinate system reference ('bow_origin', 'stern_origin', etc.)
-        bow_apex (Optional[Point3D]): Explicit bow apex point
-        stern_apex (Optional[Point3D]): Explicit stern apex point
+        bow_points (Optional[List[Point3D]]): Bow end points (multi-point or single apex)
+        stern_points (Optional[List[Point3D]]): Stern end points (multi-point or single apex)
+        bow_apex (Optional[Point3D]): Legacy property - first bow point if exists
+        stern_apex (Optional[Point3D]): Legacy property - first stern point if exists
         metadata (Optional[Dict]): Additional metadata from input file
         length (float): Overall length of kayak
         beam (float): Maximum beam (width)
@@ -36,6 +38,8 @@ class KayakHull:
         coordinate_system: str = "bow_origin",
         bow_apex: Optional[Point3D] = None,
         stern_apex: Optional[Point3D] = None,
+        bow_points: Optional[List[Point3D]] = None,
+        stern_points: Optional[List[Point3D]] = None,
     ):
         """
         Initialize a kayak hull.
@@ -43,16 +47,56 @@ class KayakHull:
         Args:
             origin: Reference origin point (default: Point3D(0, 0, 0))
             coordinate_system: Coordinate system reference (default: 'bow_origin')
-            bow_apex: Optional explicit bow apex point
-            stern_apex: Optional explicit stern apex point
+            bow_apex: Optional single bow apex point (legacy, converted to bow_points)
+            stern_apex: Optional single stern apex point (legacy, converted to stern_points)
+            bow_points: Optional list of bow end points (preferred)
+            stern_points: Optional list of stern end points (preferred)
+
+        Note:
+            For backward compatibility, if bow_apex/stern_apex are provided instead of
+            bow_points/stern_points, they will be automatically converted to single-element lists.
         """
         self.profiles: Dict[float, Profile] = {}
         self.origin = origin if origin is not None else Point3D(0.0, 0.0, 0.0)
         self.coordinate_system = coordinate_system
-        self.bow_apex = bow_apex
-        self.stern_apex = stern_apex
+
+        # Handle backward compatibility: convert single apex to list
+        if bow_points is not None:
+            self.bow_points = bow_points
+        elif bow_apex is not None:
+            self.bow_points = [bow_apex]
+        else:
+            self.bow_points = None
+
+        if stern_points is not None:
+            self.stern_points = stern_points
+        elif stern_apex is not None:
+            self.stern_points = [stern_apex]
+        else:
+            self.stern_points = None
+
         self.metadata: Optional[Dict] = None
         self._sorted_stations: Optional[List[float]] = None
+
+    @property
+    def bow_apex(self) -> Optional[Point3D]:
+        """
+        Legacy property for backward compatibility.
+        Returns the first bow point if bow_points exists, otherwise None.
+        """
+        if self.bow_points and len(self.bow_points) > 0:
+            return self.bow_points[0]
+        return None
+
+    @property
+    def stern_apex(self) -> Optional[Point3D]:
+        """
+        Legacy property for backward compatibility.
+        Returns the first stern point if stern_points exists, otherwise None.
+        """
+        if self.stern_points and len(self.stern_points) > 0:
+            return self.stern_points[0]
+        return None
 
     def add_profile(self, profile: Profile) -> None:
         """
@@ -365,6 +409,84 @@ class KayakHull:
 
         return is_symmetric, errors
 
+    def validate_bow_stern_points(self, tolerance: float = 1e-6) -> bool:
+        """
+        Validate that all bow/stern points are on the centerline (y = 0.0).
+
+        Args:
+            tolerance: Maximum allowed deviation from centerline (default: 1e-6)
+
+        Returns:
+            True if valid, False otherwise
+
+        Raises:
+            ValueError: If any bow/stern point is not on centerline
+        """
+        if self.bow_points is not None:
+            for i, point in enumerate(self.bow_points):
+                if abs(point.y) > tolerance:
+                    raise ValueError(
+                        f"Bow point {i} at ({point.x:.4f}, {point.y:.4f}, {point.z:.4f}) "
+                        f"is not on centerline. y-coordinate must be 0.0 (within {tolerance})"
+                    )
+
+        if self.stern_points is not None:
+            for i, point in enumerate(self.stern_points):
+                if abs(point.y) > tolerance:
+                    raise ValueError(
+                        f"Stern point {i} at ({point.x:.4f}, {point.y:.4f}, {point.z:.4f}) "
+                        f"is not on centerline. y-coordinate must be 0.0 (within {tolerance})"
+                    )
+
+        return True
+
+    def verify_bow_stern_point_count(self) -> bool:
+        """
+        Verify that bow/stern point count matches expected structure.
+
+        This checks that if multi-point bow/stern are defined, they have a reasonable
+        number of points that could correspond to profile levels.
+
+        Returns:
+            True if valid, False otherwise
+
+        Raises:
+            ValueError: If point counts seem inconsistent
+        """
+        if self.bow_points and len(self.bow_points) > 1:
+            # Multi-point bow - check it's reasonable
+            if len(self.profiles) == 0:
+                raise ValueError("Multi-point bow defined but no profiles exist to match against")
+
+            # Get a sample profile to check structure
+            sample_profile = next(iter(self.profiles.values()))
+            # Count unique y-coordinates (approximate levels)
+            unique_y = len(set(abs(pt.y) for pt in sample_profile.points))
+
+            if len(self.bow_points) > unique_y:
+                raise ValueError(
+                    f"Bow has {len(self.bow_points)} points but profiles only have "
+                    f"~{unique_y} distinct levels. Point count may be too high."
+                )
+
+        if self.stern_points and len(self.stern_points) > 1:
+            # Multi-point stern - check it's reasonable
+            if len(self.profiles) == 0:
+                raise ValueError("Multi-point stern defined but no profiles exist to match against")
+
+            # Get a sample profile to check structure
+            sample_profile = next(iter(self.profiles.values()))
+            # Count unique y-coordinates (approximate levels)
+            unique_y = len(set(abs(pt.y) for pt in sample_profile.points))
+
+            if len(self.stern_points) > unique_y:
+                raise ValueError(
+                    f"Stern has {len(self.stern_points)} points but profiles only have "
+                    f"~{unique_y} distinct levels. Point count may be too high."
+                )
+
+        return True
+
     def validate_data_consistency(self) -> Tuple[bool, List[str]]:
         """
         Validate data consistency across all profiles.
@@ -491,15 +613,20 @@ class KayakHull:
         Returns:
             New KayakHull with all profiles rotated
         """
-        # Rotate apex points if they exist
-        rotated_bow = self.bow_apex.rotate_x(angle_deg) if self.bow_apex else None
-        rotated_stern = self.stern_apex.rotate_x(angle_deg) if self.stern_apex else None
+        # Rotate bow/stern points if they exist
+        rotated_bow_points = None
+        if self.bow_points is not None:
+            rotated_bow_points = [pt.rotate_x(angle_deg) for pt in self.bow_points]
+
+        rotated_stern_points = None
+        if self.stern_points is not None:
+            rotated_stern_points = [pt.rotate_x(angle_deg) for pt in self.stern_points]
 
         new_hull = KayakHull(
             origin=self.origin.rotate_x(angle_deg),
             coordinate_system=self.coordinate_system,
-            bow_apex=rotated_bow,
-            stern_apex=rotated_stern,
+            bow_points=rotated_bow_points,
+            stern_points=rotated_stern_points,
         )
 
         for station, profile in self.profiles.items():
@@ -520,15 +647,20 @@ class KayakHull:
         Returns:
             New KayakHull with all profiles translated
         """
-        # Translate apex points if they exist
-        translated_bow = self.bow_apex.translate(dx, dy, dz) if self.bow_apex else None
-        translated_stern = self.stern_apex.translate(dx, dy, dz) if self.stern_apex else None
+        # Translate bow/stern points if they exist
+        translated_bow_points = None
+        if self.bow_points is not None:
+            translated_bow_points = [pt.translate(dx, dy, dz) for pt in self.bow_points]
+
+        translated_stern_points = None
+        if self.stern_points is not None:
+            translated_stern_points = [pt.translate(dx, dy, dz) for pt in self.stern_points]
 
         new_hull = KayakHull(
             origin=self.origin.translate(dx, dy, dz),
             coordinate_system=self.coordinate_system,
-            bow_apex=translated_bow,
-            stern_apex=translated_stern,
+            bow_points=translated_bow_points,
+            stern_points=translated_stern_points,
         )
 
         for station, profile in self.profiles.items():
@@ -566,32 +698,37 @@ class KayakHull:
                     "Cannot convert coordinate system: " "hull has zero or negative length"
                 )
 
-            # Transform apex points
-            new_bow_apex = None
-            new_stern_apex = None
+            # Transform bow/stern points
+            new_bow_points = None
+            new_stern_points = None
 
-            if self.bow_apex is not None:
-                new_bow_apex = Point3D(
-                    hull_length - self.bow_apex.x, self.bow_apex.y, self.bow_apex.z
-                )
-            if self.stern_apex is not None:
-                new_stern_apex = Point3D(
-                    hull_length - self.stern_apex.x, self.stern_apex.y, self.stern_apex.z
-                )
+            if self.bow_points is not None:
+                new_bow_points = [
+                    Point3D(hull_length - pt.x, pt.y, pt.z, level=pt.level)
+                    for pt in self.bow_points
+                ]
+
+            if self.stern_points is not None:
+                new_stern_points = [
+                    Point3D(hull_length - pt.x, pt.y, pt.z, level=pt.level)
+                    for pt in self.stern_points
+                ]
 
             # Create new hull
             new_hull = KayakHull(
                 origin=self.origin,
                 coordinate_system=target_system,
-                bow_apex=new_bow_apex,
-                stern_apex=new_stern_apex,
+                bow_points=new_bow_points,
+                stern_points=new_stern_points,
             )
 
             # Transform all profiles
             for station, profile in self.profiles.items():
                 new_station = hull_length - station
-                # Create new points with transformed x-coordinates
-                new_points = [Point3D(new_station, pt.y, pt.z) for pt in profile.points]
+                # Create new points with transformed x-coordinates, preserving level
+                new_points = [
+                    Point3D(new_station, pt.y, pt.z, level=pt.level) for pt in profile.points
+                ]
                 # Create new profile with transformed station and points
                 new_profile = Profile(new_station, new_points)
                 new_hull.add_profile(new_profile)
@@ -606,32 +743,37 @@ class KayakHull:
                     "Cannot convert coordinate system: " "hull has zero or negative length"
                 )
 
-            # Transform apex points
-            new_bow_apex = None
-            new_stern_apex = None
+            # Transform bow/stern points
+            new_bow_points = None
+            new_stern_points = None
 
-            if self.bow_apex is not None:
-                new_bow_apex = Point3D(
-                    hull_length - self.bow_apex.x, self.bow_apex.y, self.bow_apex.z
-                )
-            if self.stern_apex is not None:
-                new_stern_apex = Point3D(
-                    hull_length - self.stern_apex.x, self.stern_apex.y, self.stern_apex.z
-                )
+            if self.bow_points is not None:
+                new_bow_points = [
+                    Point3D(hull_length - pt.x, pt.y, pt.z, level=pt.level)
+                    for pt in self.bow_points
+                ]
+
+            if self.stern_points is not None:
+                new_stern_points = [
+                    Point3D(hull_length - pt.x, pt.y, pt.z, level=pt.level)
+                    for pt in self.stern_points
+                ]
 
             # Create new hull
             new_hull = KayakHull(
                 origin=self.origin,
                 coordinate_system=target_system,
-                bow_apex=new_bow_apex,
-                stern_apex=new_stern_apex,
+                bow_points=new_bow_points,
+                stern_points=new_stern_points,
             )
 
             # Transform all profiles
             for station, profile in self.profiles.items():
                 new_station = hull_length - station
-                # Create new points with transformed x-coordinates
-                new_points = [Point3D(new_station, pt.y, pt.z) for pt in profile.points]
+                # Create new points with transformed x-coordinates, preserving level
+                new_points = [
+                    Point3D(new_station, pt.y, pt.z, level=pt.level) for pt in profile.points
+                ]
                 # Create new profile with transformed station and points
                 new_profile = Profile(new_station, new_points)
                 new_hull.add_profile(new_profile)

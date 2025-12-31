@@ -313,37 +313,84 @@ def _create_hull_from_dict(data: Dict[str, Any]) -> KayakHull:
     """
     Create a KayakHull object from a validated data dictionary.
 
-    Automatically creates intermediate profiles between end profiles and
-    bow/stern apex points if they are defined.
+    Note: As of Task 9.7 Step 1, automatic interpolation to bow/stern apex has been removed.
+    Bow/stern apex points are loaded but not used for profile generation.
+    Future implementation will support multi-point bow/stern arrays and pyramid volume closures.
 
     Args:
         data: Dictionary with 'metadata' and 'profiles' keys
 
     Returns:
-        KayakHull object with interpolated bow/stern profiles if apex points defined
+        KayakHull object with profiles as defined in input data
     """
     # Extract metadata
     metadata = data.get("metadata", {})
     coordinate_system = metadata.get("coordinate_system", "bow_origin")
 
-    # Extract bow and stern apex points if present
+    # Extract bow and stern points (single or array)
+    bow_points = None
+    stern_points = None
     bow_apex = None
     stern_apex = None
 
     if "bow" in data:
         bow_data = data["bow"]
-        bow_apex = Point3D(float(bow_data["x"]), float(bow_data["y"]), float(bow_data["z"]))
+        if isinstance(bow_data, dict):
+            # Single point (backward compatibility)
+            bow_apex = Point3D(
+                float(bow_data["x"]),
+                float(bow_data["y"]),
+                float(bow_data["z"]),
+                level=bow_data.get("level"),
+            )
+            # Legacy handling: single point stored as bow_apex for backward compatibility
+            # KayakHull will automatically convert to list in __init__
+        elif isinstance(bow_data, list):
+            # Multi-point array
+            bow_points = [
+                Point3D(float(pt["x"]), float(pt["y"]), float(pt["z"]), level=pt.get("level"))
+                for pt in bow_data
+            ]
+            # Use first point as apex for legacy property
+            bow_apex = bow_points[0] if bow_points else None
 
     if "stern" in data:
         stern_data = data["stern"]
-        stern_apex = Point3D(float(stern_data["x"]), float(stern_data["y"]), float(stern_data["z"]))
+        if isinstance(stern_data, dict):
+            # Single point (backward compatibility)
+            stern_apex = Point3D(
+                float(stern_data["x"]),
+                float(stern_data["y"]),
+                float(stern_data["z"]),
+                level=stern_data.get("level"),
+            )
+            # Legacy handling: single point stored as stern_apex for backward compatibility
+        elif isinstance(stern_data, list):
+            # Multi-point array
+            stern_points = [
+                Point3D(float(pt["x"]), float(pt["y"]), float(pt["z"]), level=pt.get("level"))
+                for pt in stern_data
+            ]
+            # Use first point as apex for legacy property
+            stern_apex = stern_points[0] if stern_points else None
 
-    # Create hull with coordinate system and apex points
-    hull = KayakHull(
-        coordinate_system=coordinate_system,
-        bow_apex=bow_apex,
-        stern_apex=stern_apex,
-    )
+    # Create hull with coordinate system and bow/stern points
+    # If multi-point arrays were loaded, pass them; otherwise pass single apex (backward compat)
+    if bow_points is not None or stern_points is not None:
+        hull = KayakHull(
+            coordinate_system=coordinate_system,
+            bow_points=bow_points if bow_points is not None else ([bow_apex] if bow_apex else None),
+            stern_points=(
+                stern_points if stern_points is not None else ([stern_apex] if stern_apex else None)
+            ),
+        )
+    else:
+        # Backward compatibility: use old bow_apex/stern_apex parameters
+        hull = KayakHull(
+            coordinate_system=coordinate_system,
+            bow_apex=bow_apex,
+            stern_apex=stern_apex,
+        )
 
     # Store metadata as attributes (if needed in future)
     hull.metadata = metadata
@@ -363,141 +410,11 @@ def _create_hull_from_dict(data: Dict[str, Any]) -> KayakHull:
         # Update coordinate_system variable for subsequent logic
         coordinate_system = "stern_origin"
 
-    # Automatically create interpolated profiles to bow/stern if apex points are defined
-    # We create end profiles that taper appropriately and use longitudinal interpolation
-    if hull.bow_apex is not None and len(hull.profiles) > 0:
-        # Check if there's already a profile at the bow apex location
-        existing_at_bow = hull.bow_apex.x in hull.profiles
-
-        if not existing_at_bow:
-            stations = sorted(hull.get_stations())
-
-            # Find the profile closest to the bow apex
-            if hull.coordinate_system == "bow_origin":
-                closest_station = min(stations)
-            elif hull.coordinate_system == "stern_origin":
-                closest_station = max(stations)
-            else:
-                closest_station = min(stations, key=lambda s: abs(s - hull.bow_apex.x))
-
-            # Only interpolate if bow apex is not at the same station
-            if abs(closest_station - hull.bow_apex.x) > 1e-6:
-                closest_profile = hull.get_profile(closest_station, interpolate=False)
-
-                # Create end profile that matches the structure of the closest profile
-                # but scaled down in beam while maintaining the depth (z) characteristics
-                closest_points = sorted(closest_profile.points, key=lambda p: p.y)
-
-                # Calculate scale factor for beam (15% of original)
-                beam_scale = 0.15
-
-                # Create scaled points maintaining z-structure
-                end_points = []
-                for pt in closest_points:
-                    # Scale y-coordinate (transverse)
-                    scaled_y = pt.y * beam_scale
-                    # Keep z-coordinate the same (depth profile stays similar)
-                    end_points.append(Point3D(hull.bow_apex.x, scaled_y, pt.z))
-
-                bow_end_profile = Profile(hull.bow_apex.x, end_points)
-
-                # Create intermediate stations
-                distance = abs(hull.bow_apex.x - closest_station)
-                num_intermediate = max(2, int(distance / 0.25))
-
-                intermediate_stations = np.linspace(
-                    hull.bow_apex.x, closest_station, num_intermediate + 2
-                )[1:-1]
-
-                # Manually create interpolated profiles
-                # that properly expand from narrow to wide
-                for target_station in intermediate_stations:
-                    # Calculate interpolation factor
-                    # t = 0 at bow (narrow), t = 1 at closest_station (wide)
-                    t = abs(target_station - hull.bow_apex.x) / abs(
-                        closest_station - hull.bow_apex.x
-                    )
-
-                    # Interpolate each point: scale y-coordinates, interpolate z-coordinates
-                    interp_points = []
-                    for pt in closest_points:
-                        # Interpolate y: from narrow (beam_scale * y) to wide (y)
-                        y_interp = pt.y * (beam_scale + t * (1 - beam_scale))
-                        # Interpolate z
-                        z_interp = pt.z
-                        interp_points.append(Point3D(target_station, y_interp, z_interp))
-
-                    hull.add_profile(Profile(target_station, interp_points))
-
-                # Add the bow end profile
-                hull.add_profile(bow_end_profile)
-
-    if hull.stern_apex is not None and len(hull.profiles) > 0:
-        # Check if there's already a profile at the stern apex location
-        existing_at_stern = hull.stern_apex.x in hull.profiles
-
-        if not existing_at_stern:
-            stations = sorted(hull.get_stations())
-
-            # Find the profile closest to the stern apex
-            if hull.coordinate_system == "bow_origin":
-                closest_station = max([s for s in stations if s < hull.stern_apex.x])
-            elif hull.coordinate_system == "stern_origin":
-                closest_station = min([s for s in stations if s > hull.stern_apex.x])
-            else:
-                closest_station = min(stations, key=lambda s: abs(s - hull.stern_apex.x))
-
-            # Only interpolate if stern apex is not at the same station
-            if abs(closest_station - hull.stern_apex.x) > 1e-6:
-                closest_profile = hull.get_profile(closest_station, interpolate=False)
-
-                # Create end profile that matches the structure of the closest profile
-                # but scaled down in beam while maintaining the depth (z) characteristics
-                closest_points = sorted(closest_profile.points, key=lambda p: p.y)
-
-                # Calculate scale factor for beam (15% of original)
-                beam_scale = 0.15
-
-                # Create scaled points maintaining z-structure
-                end_points = []
-                for pt in closest_points:
-                    # Scale y-coordinate (transverse)
-                    scaled_y = pt.y * beam_scale
-                    # Keep z-coordinate the same (depth profile stays similar)
-                    end_points.append(Point3D(hull.stern_apex.x, scaled_y, pt.z))
-
-                stern_end_profile = Profile(hull.stern_apex.x, end_points)
-
-                # Create intermediate stations
-                distance = abs(hull.stern_apex.x - closest_station)
-                num_intermediate = max(2, int(distance / 0.25))
-
-                intermediate_stations = np.linspace(
-                    closest_station, hull.stern_apex.x, num_intermediate + 2
-                )[1:-1]
-
-                # Manually create interpolated profiles
-                # that properly expand from wide to narrow
-                for target_station in intermediate_stations:
-                    # Calculate interpolation factor
-                    # t = 0 at closest_station (wide), t = 1 at stern (narrow)
-                    t = abs(target_station - closest_station) / abs(
-                        hull.stern_apex.x - closest_station
-                    )
-
-                    # Interpolate each point: scale y-coordinates from wide to narrow
-                    interp_points = []
-                    for pt in closest_points:
-                        # Interpolate y: from wide (y) to narrow (beam_scale * y)
-                        y_interp = pt.y * (1 - t * (1 - beam_scale))
-                        # Keep z the same
-                        z_interp = pt.z
-                        interp_points.append(Point3D(target_station, y_interp, z_interp))
-
-                    hull.add_profile(Profile(target_station, interp_points))
-
-                # Add the stern end profile
-                hull.add_profile(stern_end_profile)
+    # NOTE: Bow/stern interpolation has been removed (Step 1 of Task 9.7)
+    # Will be replaced with:
+    # - Multi-point bow/stern definitions (arrays of points at different levels)
+    # - Pyramid volume calculation for end closures
+    # The bow_apex and stern_apex data is still loaded but no longer used for interpolation
 
     return hull
 
@@ -508,13 +425,15 @@ def _create_profile_from_dict(profile_data: Dict[str, Any]) -> Profile:
 
     Args:
         profile_data: Dictionary with 'station' and 'points' keys
+                     Points may optionally include 'level' attribute
 
     Returns:
         Profile object
     """
     station = float(profile_data["station"])
     points = [
-        Point3D(float(pt["x"]), float(pt["y"]), float(pt["z"])) for pt in profile_data["points"]
+        Point3D(float(pt["x"]), float(pt["y"]), float(pt["z"]), level=pt.get("level"))
+        for pt in profile_data["points"]
     ]
 
     return Profile(station, points)

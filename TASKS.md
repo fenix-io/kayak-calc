@@ -497,7 +497,14 @@
 
 ### 9.7 Add mor point to bow and stern
 Current definition of bow and stern fall short to define a good shape of the hull with more control about the rocker and the depth on diferent points. 
- - [ ] Make bow and stern definitions an array of points an then interpolate the points on extreme stations with the corresponding points on the bow and stern (point count must match the the point count on the stations). One possible solution to the interpolation issues can be: points on the bow and stern be duplicated to both sides of the bow/stern half real size (for example 2 centimeter wood, aluminium or plastic piece can be a real bow or stern size, and points are placed 1 centimeter from the center line). The point in the center line should be the point where the rocker of the bow/stern start rising.
+ - [ ] Make bow and stern definitions an array of points with the following rules
+  - consider the reversion of direction when bow_origin is selected (revert the order and x coordinate), also consider in this case revert the stern and bow points x coordinate.
+  - every point in bow/stern must match one of the line in the stations, for example if you station has 7 points - keel, chime 1 (2pt), chime 2 (2pt), and gunwal (2pt) - the bow and stern should have 4, keel, chime 1, chime 2, gunwal.. 
+  - all bow/stern points on bow or stern should be in the same y = 0.0, (the center line)
+  - all bow/stern points will be in different x defining the new stations and the shape of the hulls. 
+  - rest of points in the interpolated station will appear as intersction of the line that join the bow/stern with the last station given as data, so for example if you have a gunwal in last station {0.5, 0.2, 0.3} and stern gunwal is {0.0, 0.0, 0.36}, if we have a keel point on the stren at {0.25, 0, 0}, the gunwal point for the new interpolated station 0.25 will be {0.25, 0.1, 0.33}. 
+  - between the last calculated station and the bow or stern we need to build a last volume for the hull, like a pyramid with the apex 
+  
  
 ### 9.8 Review tests and docs ✅
 After adding bow and stern to the design we need to check all tests again

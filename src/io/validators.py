@@ -153,6 +153,95 @@ def validate_point_data(
     return (len(errors) == 0, errors)
 
 
+def validate_bow_stern_points(
+    bow_stern_data: Union[Dict[str, Any], List[Dict[str, Any]]],
+    name: str = "bow/stern",
+    check_centerline: bool = True,
+    tolerance: float = 1e-6,
+) -> Tuple[bool, List[str]]:
+    """
+    Validate bow or stern point(s) data.
+
+    Supports both single point (legacy) and multi-point array formats.
+
+    Checks:
+    - Point data validity (coordinates are numbers, not NaN/Inf)
+    - Centerline constraint: all points have y = 0.0 (within tolerance)
+    - Consistent level usage: if any point has 'level', all must have it
+
+    Args:
+        bow_stern_data: Single point dict or array of point dicts
+        name: Name for error messages ("bow" or "stern")
+        check_centerline: Whether to enforce y = 0.0 constraint
+        tolerance: Maximum allowed deviation from centerline
+
+    Returns:
+        Tuple of (is_valid, error_messages)
+    """
+    errors = []
+
+    # Handle both single point and array formats
+    if isinstance(bow_stern_data, dict):
+        # Single point format (legacy)
+        points = [bow_stern_data]
+        is_array = False
+    elif isinstance(bow_stern_data, list):
+        # Multi-point array format
+        points = bow_stern_data
+        is_array = True
+        if len(points) == 0:
+            errors.append(f"{name}: Array cannot be empty")
+            return (False, errors)
+    else:
+        errors.append(
+            f"{name}: Must be either a point object or array of points, "
+            f"got {type(bow_stern_data).__name__}"
+        )
+        return (False, errors)
+
+    # Track if any point has 'level' attribute
+    has_level = []
+
+    # Validate each point
+    for i, point in enumerate(points):
+        if not isinstance(point, dict):
+            errors.append(f"{name} point {i}: Must be a dictionary")
+            continue
+
+        # Validate point coordinates
+        is_valid, point_errors = validate_point_data(point, i)
+        if not is_valid:
+            errors.extend([f"{name}: {err}" for err in point_errors])
+
+        # Check centerline constraint (y = 0.0)
+        if check_centerline and "y" in point:
+            try:
+                y_val = float(point["y"])
+                if not np.isfinite(y_val):
+                    errors.append(f"{name} point {i}: y-coordinate must be finite")
+                elif abs(y_val) > tolerance:
+                    errors.append(
+                        f"{name} point {i}: y-coordinate must be 0.0 (on centerline), "
+                        f"got {y_val:.6f} (tolerance: {tolerance})"
+                    )
+            except (TypeError, ValueError):
+                pass  # Already caught by validate_point_data
+
+        # Track level attribute usage
+        has_level.append("level" in point)
+
+    # Check level consistency: if any point has level, all should have it
+    if any(has_level) and not all(has_level):
+        missing_level_indices = [i for i, has in enumerate(has_level) if not has]
+        errors.append(
+            f"{name}: Inconsistent 'level' attribute usage. "
+            f"Points {missing_level_indices} missing 'level' attribute. "
+            f"Either all points must have 'level' or none should."
+        )
+
+    return (len(errors) == 0, errors)
+
+
 def validate_profile_data(
     profile_dict: Dict[str, Any], profile_index: Optional[int] = None
 ) -> Tuple[bool, List[str]]:
@@ -289,6 +378,56 @@ def validate_hull_data(hull_data: Dict[str, Any]) -> Tuple[bool, List[str]]:
         is_valid, meta_errors = validate_metadata(hull_data["metadata"])
         if not is_valid:
             errors.extend([f"Metadata: {err}" for err in meta_errors])
+
+    # Validate bow points if present
+    if "bow" in hull_data and hull_data["bow"] is not None:
+        is_valid, bow_errors = validate_bow_stern_points(
+            hull_data["bow"], name="bow", check_centerline=True
+        )
+        if not is_valid:
+            errors.extend(bow_errors)
+
+    # Validate stern points if present
+    if "stern" in hull_data and hull_data["stern"] is not None:
+        is_valid, stern_errors = validate_bow_stern_points(
+            hull_data["stern"], name="stern", check_centerline=True
+        )
+        if not is_valid:
+            errors.extend(stern_errors)
+
+    # Check level consistency between bow/stern and profiles if levels are used
+    if "bow" in hull_data or "stern" in hull_data:
+        # Check if bow/stern use levels
+        bow_has_level = False
+        stern_has_level = False
+
+        if "bow" in hull_data and hull_data["bow"]:
+            bow_points = (
+                hull_data["bow"] if isinstance(hull_data["bow"], list) else [hull_data["bow"]]
+            )
+            bow_has_level = any("level" in pt for pt in bow_points)
+
+        if "stern" in hull_data and hull_data["stern"]:
+            stern_points = (
+                hull_data["stern"] if isinstance(hull_data["stern"], list) else [hull_data["stern"]]
+            )
+            stern_has_level = any("level" in pt for pt in stern_points)
+
+        # If bow or stern use levels, check profile points
+        if bow_has_level or stern_has_level:
+            if "profiles" in hull_data and hull_data["profiles"]:
+                profile_has_level = False
+                for profile in hull_data["profiles"]:
+                    if "points" in profile:
+                        profile_has_level = any("level" in pt for pt in profile["points"])
+                        break
+
+                if not profile_has_level:
+                    errors.append(
+                        "Level consistency: bow/stern points use 'level' attribute but "
+                        "profile points do not. If 'level' is used in bow/stern, "
+                        "all profile points must also have 'level' attribute."
+                    )
 
     # Check profiles field
     if "profiles" not in hull_data:

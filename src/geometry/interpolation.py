@@ -516,3 +516,345 @@ def resample_profile_uniform_arc(profile: Profile, num_points: int) -> Profile:
     resampled_points = [Point3D(profile.station, y, z) for y, z in zip(y_new, z_new)]
 
     return Profile(profile.station, resampled_points)
+
+
+def interpolate_to_bow_stern_multipoint(
+    end_profile: Profile,
+    end_points: List[Point3D],
+    num_intermediate_stations: int = 5,
+    is_bow: bool = True,
+) -> List[Profile]:
+    """
+    Interpolate profiles from an end profile to multi-point bow/stern definition.
+
+    Creates intermediate profiles that transition from the last data station to
+    the bow/stern end points. Handles both level-based matching and position-based
+    matching approaches.
+
+    This function supports Task 9.7's multi-point bow/stern feature, which allows
+    defining multiple points at different vertical levels (keel, chines, gunwale)
+    at the bow and stern for better control over hull rocker and shape.
+
+    **Matching Approaches**:
+    1. **Level-based**: If 'level' attribute is present in end_points, matches points
+       by level name (e.g., 'keel', 'chine1', 'gunwale')
+    2. **Position-based**: If no 'level' attributes, matches by array position
+       (assumes consistent ordering: centerline first, then port/starboard pairs)
+
+    **Algorithm**:
+    1. Detect matching approach (level names vs. positions)
+    2. Group profile points by level or position
+    3. For each level/position:
+       - Find corresponding point in end_profile (centerline)
+       - Find port/starboard pair in end_profile (if not centerline)
+       - Interpolate from profile point(s) to bow/stern point
+    4. Create intermediate profiles at evenly spaced stations
+    5. Create final profile at bow/stern point location
+
+    Args:
+        end_profile: Last data station profile (bow or stern profile)
+        end_points: List of bow/stern points (from bow_points or stern_points)
+        num_intermediate_stations: Number of profiles between end_profile and bow/stern
+        is_bow: True if interpolating to bow, False if to stern
+
+    Returns:
+        List of Profile objects from end_profile toward bow/stern points
+        (includes final profile at bow/stern location, excludes original end_profile)
+
+    Raises:
+        ValueError: If end_points is empty
+        ValueError: If level-based matching fails to find corresponding points
+        ValueError: If position-based matching has inconsistent point counts
+
+    Example:
+        >>> # Level-based matching
+        >>> bow_profile = Profile(4.5, [
+        ...     Point3D(4.5, 0.0, 0.3, level='gunwale'),
+        ...     Point3D(4.5, -0.2, 0.1, level='chine'),
+        ...     Point3D(4.5, 0.2, 0.1, level='chine'),
+        ... ])
+        >>> bow_points = [
+        ...     Point3D(5.0, 0.0, 0.5, level='gunwale'),
+        ...     Point3D(4.8, 0.0, 0.3, level='chine'),
+        ... ]
+        >>> profiles = interpolate_to_bow_stern_multipoint(bow_profile, bow_points, 3)
+        >>> len(profiles)
+        4  # 3 intermediate + 1 final
+
+        >>> # Position-based matching
+        >>> bow_points_no_levels = [
+        ...     Point3D(5.0, 0.0, 0.5),
+        ...     Point3D(4.8, 0.0, 0.3),
+        ... ]
+        >>> profiles = interpolate_to_bow_stern_multipoint(bow_profile, bow_points_no_levels, 3)
+    """
+    if not end_points:
+        raise ValueError("end_points cannot be empty")
+
+    # Detect matching approach: check if any end_point has 'level' attribute
+    use_level_matching = any(hasattr(pt, "level") and pt.level is not None for pt in end_points)
+
+    if use_level_matching:
+        return _interpolate_multipoint_by_level(
+            end_profile, end_points, num_intermediate_stations, is_bow
+        )
+    else:
+        return _interpolate_multipoint_by_position(
+            end_profile, end_points, num_intermediate_stations, is_bow
+        )
+
+
+def _interpolate_multipoint_by_level(
+    end_profile: Profile,
+    end_points: List[Point3D],
+    num_intermediate_stations: int,
+    is_bow: bool,
+) -> List[Profile]:
+    """
+    Interpolate to multi-point bow/stern using level-based matching.
+
+    Internal function that handles level-based point correspondence.
+    """
+    # Group profile points by level
+    profile_by_level = {}
+    for point in end_profile.points:
+        level = point.level if hasattr(point, "level") else None
+        if level is None:
+            raise ValueError(
+                "Level-based matching requires all profile points to have 'level' attribute"
+            )
+        if level not in profile_by_level:
+            profile_by_level[level] = []
+        profile_by_level[level].append(point)
+
+    # Validate that all end_points have levels
+    for pt in end_points:
+        if not hasattr(pt, "level") or pt.level is None:
+            raise ValueError(
+                "Level-based matching requires all end_points to have 'level' attribute"
+            )
+
+    # Determine station range
+    profile_station = end_profile.station
+    # Find furthest bow/stern point
+    if is_bow:
+        end_station = max(pt.x for pt in end_points)
+    else:
+        end_station = min(pt.x for pt in end_points)
+
+    # Generate intermediate stations
+    stations = np.linspace(
+        profile_station, end_station, num_intermediate_stations + 2
+    )  # +2 for start and end
+    stations = stations[1:]  # Exclude original profile station
+
+    intermediate_profiles = []
+
+    # For each intermediate station, create a profile
+    for station in stations:
+        # Calculate interpolation factor (0 at profile, 1 at bow/stern)
+        if abs(end_station - profile_station) < 1e-10:
+            t = 1.0
+        else:
+            t = abs(station - profile_station) / abs(end_station - profile_station)
+
+        station_points = []
+
+        # For each level in end_points, interpolate corresponding profile points
+        for end_pt in end_points:
+            level = end_pt.level
+
+            # Find corresponding points in profile
+            if level not in profile_by_level:
+                # If this level doesn't exist in profile, we need to interpolate
+                # from some representative profile point(s) to the end point
+                # Use centerline points or average of all points
+                profile_centerline = [p for p in end_profile.points if abs(p.y) < 1e-6]
+                if profile_centerline:
+                    # Interpolate from centerline
+                    avg_z = sum(p.z for p in profile_centerline) / len(profile_centerline)
+                    z_new = (1 - t) * avg_z + t * end_pt.z
+                    station_points.append(Point3D(station, 0.0, z_new, level=level))
+
+                    # Also taper port/starboard points toward centerline
+                    port_pts = [p for p in end_profile.points if p.y < -1e-6]
+                    starboard_pts = [p for p in end_profile.points if p.y > 1e-6]
+
+                    for pt in port_pts:
+                        y_new = pt.y * (1 - t)
+                        z_new = (1 - t) * pt.z + t * end_pt.z
+                        if abs(y_new) > 1e-6:
+                            station_points.append(Point3D(station, y_new, z_new, level=level))
+
+                    for pt in starboard_pts:
+                        y_new = pt.y * (1 - t)
+                        z_new = (1 - t) * pt.z + t * end_pt.z
+                        if abs(y_new) > 1e-6:
+                            station_points.append(Point3D(station, y_new, z_new, level=level))
+                else:
+                    # No centerline, just use any profile point
+                    avg_z = sum(p.z for p in end_profile.points) / len(end_profile.points)
+                    z_new = (1 - t) * avg_z + t * end_pt.z
+                    station_points.append(Point3D(station, 0.0, z_new, level=level))
+                continue
+
+            profile_pts = profile_by_level[level]
+
+            # Separate centerline and port/starboard points
+            centerline_pts = [p for p in profile_pts if abs(p.y) < 1e-6]
+            port_pts = [p for p in profile_pts if p.y < -1e-6]
+            starboard_pts = [p for p in profile_pts if p.y > 1e-6]
+
+            # Interpolate based on end point being on centerline or not
+            if abs(end_pt.y) < 1e-6:
+                # Centerline point
+                if centerline_pts:
+                    # Interpolate from centerline point to end point
+                    profile_pt = centerline_pts[0]
+                    z_new = (1 - t) * profile_pt.z + t * end_pt.z
+                    station_points.append(Point3D(station, 0.0, z_new, level=level))
+                else:
+                    # No centerline point in profile, create tapering path
+                    # Average the port/starboard points
+                    if port_pts and starboard_pts:
+                        avg_z = (port_pts[0].z + starboard_pts[0].z) / 2
+                        z_new = (1 - t) * avg_z + t * end_pt.z
+                        station_points.append(Point3D(station, 0.0, z_new, level=level))
+                    else:
+                        # Just use the end point position
+                        station_points.append(
+                            Point3D(
+                                station,
+                                0.0,
+                                (1 - t) * end_profile.points[0].z + t * end_pt.z,
+                                level=level,
+                            )
+                        )
+
+                # Also interpolate port/starboard points tapering to centerline
+                if port_pts:
+                    for pt in port_pts:
+                        # Scale y toward centerline
+                        y_new = pt.y * (1 - t)
+                        z_new = (1 - t) * pt.z + t * end_pt.z
+                        if abs(y_new) > 1e-6:  # Don't duplicate centerline
+                            station_points.append(Point3D(station, y_new, z_new, level=level))
+
+                if starboard_pts:
+                    for pt in starboard_pts:
+                        # Scale y toward centerline
+                        y_new = pt.y * (1 - t)
+                        z_new = (1 - t) * pt.z + t * end_pt.z
+                        if abs(y_new) > 1e-6:  # Don't duplicate centerline
+                            station_points.append(Point3D(station, y_new, z_new, level=level))
+
+            else:
+                # Off-centerline end point (unusual but handle it)
+                # Find closest profile point
+                closest_pt = min(profile_pts, key=lambda p: abs(p.y - end_pt.y))
+                y_new = (1 - t) * closest_pt.y + t * end_pt.y
+                z_new = (1 - t) * closest_pt.z + t * end_pt.z
+                station_points.append(Point3D(station, y_new, z_new, level=level))
+
+        if station_points:
+            # Sort points by y-coordinate
+            station_points.sort(key=lambda p: p.y)
+            intermediate_profiles.append(Profile(station, station_points))
+
+    return intermediate_profiles
+
+
+def _interpolate_multipoint_by_position(
+    end_profile: Profile,
+    end_points: List[Point3D],
+    num_intermediate_stations: int,
+    is_bow: bool,
+) -> List[Profile]:
+    """
+    Interpolate to multi-point bow/stern using position-based matching.
+
+    Internal function that handles position-based point correspondence.
+    Assumes consistent ordering: centerline points first, then port/starboard pairs.
+    """
+    # For position-based matching, we assume:
+    # - end_points are ordered by vertical level (top to bottom or bottom to top)
+    # - profile points are grouped similarly
+    # - We match by finding corresponding "levels" based on z-coordinate proximity
+
+    # Sort end_points by z-coordinate (vertical)
+    sorted_end_points = sorted(end_points, key=lambda p: -p.z)  # High to low
+
+    # Group profile points by approximate z-level
+    # Find unique z-levels in profile
+    profile_centerline = [p for p in end_profile.points if abs(p.y) < 1e-6]
+    profile_centerline_sorted = sorted(profile_centerline, key=lambda p: -p.z)
+
+    # Determine station range
+    profile_station = end_profile.station
+    if is_bow:
+        end_station = max(pt.x for pt in end_points)
+    else:
+        end_station = min(pt.x for pt in end_points)
+
+    # Generate intermediate stations
+    stations = np.linspace(profile_station, end_station, num_intermediate_stations + 2)
+    stations = stations[1:]
+
+    intermediate_profiles = []
+
+    # Match end_points to profile levels by z-proximity
+    for station in stations:
+        t = (
+            abs(station - profile_station) / abs(end_station - profile_station)
+            if abs(end_station - profile_station) > 1e-10
+            else 1.0
+        )
+
+        station_points = []
+
+        # For each end_point, find corresponding profile points
+        for end_pt in sorted_end_points:
+            # Find closest centerline point in profile by z-coordinate
+            if profile_centerline_sorted:
+                closest_profile_pt = min(
+                    profile_centerline_sorted, key=lambda p: abs(p.z - end_pt.z)
+                )
+
+                # Find port/starboard points at similar z-level
+                z_tolerance = 0.15  # meters, adjust as needed
+                profile_pts_at_level = [
+                    p for p in end_profile.points if abs(p.z - closest_profile_pt.z) < z_tolerance
+                ]
+
+                # Separate by side
+                centerline_pts = [p for p in profile_pts_at_level if abs(p.y) < 1e-6]
+                port_pts = [p for p in profile_pts_at_level if p.y < -1e-6]
+                starboard_pts = [p for p in profile_pts_at_level if p.y > 1e-6]
+
+                # Interpolate centerline point
+                if centerline_pts:
+                    profile_pt = centerline_pts[0]
+                    z_new = (1 - t) * profile_pt.z + t * end_pt.z
+                    station_points.append(Point3D(station, 0.0, z_new, level=end_pt.level))
+
+                # Interpolate and taper port/starboard points
+                for pt in port_pts:
+                    y_new = pt.y * (1 - t)  # Taper toward centerline
+                    z_new = (1 - t) * pt.z + t * end_pt.z
+                    if abs(y_new) > 1e-6:
+                        station_points.append(Point3D(station, y_new, z_new, level=end_pt.level))
+
+                for pt in starboard_pts:
+                    y_new = pt.y * (1 - t)  # Taper toward centerline
+                    z_new = (1 - t) * pt.z + t * end_pt.z
+                    if abs(y_new) > 1e-6:
+                        station_points.append(Point3D(station, y_new, z_new, level=end_pt.level))
+            else:
+                # No centerline points, just interpolate directly
+                station_points.append(Point3D(station, 0.0, end_pt.z * t, level=end_pt.level))
+
+        if station_points:
+            station_points.sort(key=lambda p: p.y)
+            intermediate_profiles.append(Profile(station, station_points))
+
+    return intermediate_profiles

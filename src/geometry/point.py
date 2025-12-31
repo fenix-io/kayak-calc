@@ -13,9 +13,10 @@ class Point3D:
         x (float): X-coordinate
         y (float): Y-coordinate (typically transverse, perpendicular to centerline)
         z (float): Z-coordinate (typically vertical)
+        level (str | None): Optional level identifier (e.g., 'keel', 'chine', 'gunwale')
     """
 
-    def __init__(self, x: float, y: float, z: float):
+    def __init__(self, x: float, y: float, z: float, level: str | None = None):
         """
         Initialize a 3D point.
 
@@ -23,10 +24,12 @@ class Point3D:
             x: X-coordinate
             y: Y-coordinate
             z: Z-coordinate
+            level: Optional level identifier for the point
         """
         self.x = float(x)
         self.y = float(y)
         self.z = float(z)
+        self.level = level
 
     @property
     def coordinates(self) -> np.ndarray:
@@ -74,7 +77,7 @@ class Point3D:
         Returns:
             New translated Point3D
         """
-        return Point3D(self.x + dx, self.y + dy, self.z + dz)
+        return Point3D(self.x + dx, self.y + dy, self.z + dz, level=self.level)
 
     def rotate_x(self, angle_deg: float) -> "Point3D":
         """
@@ -107,7 +110,7 @@ class Point3D:
         new_y = self.y * cos_a - self.z * sin_a
         new_z = self.y * sin_a + self.z * cos_a
 
-        return Point3D(new_x, new_y, new_z)
+        return Point3D(new_x, new_y, new_z, level=self.level)
 
     def rotate_y(self, angle_deg: float) -> "Point3D":
         """
@@ -132,7 +135,7 @@ class Point3D:
         new_y = self.y
         new_z = -self.x * sin_a + self.z * cos_a
 
-        return Point3D(new_x, new_y, new_z)
+        return Point3D(new_x, new_y, new_z, level=self.level)
 
     def rotate_z(self, angle_deg: float) -> "Point3D":
         """
@@ -157,7 +160,7 @@ class Point3D:
         new_y = self.x * sin_a + self.y * cos_a
         new_z = self.z
 
-        return Point3D(new_x, new_y, new_z)
+        return Point3D(new_x, new_y, new_z, level=self.level)
 
     def scale(self, sx: float = 1.0, sy: float = 1.0, sz: float = 1.0) -> "Point3D":
         """
@@ -171,10 +174,12 @@ class Point3D:
         Returns:
             New scaled Point3D
         """
-        return Point3D(self.x * sx, self.y * sy, self.z * sz)
+        return Point3D(self.x * sx, self.y * sy, self.z * sz, level=self.level)
 
     def __repr__(self) -> str:
         """String representation of the point."""
+        if self.level is not None:
+            return f"Point3D(x={self.x:.4f}, y={self.y:.4f}, z={self.z:.4f}, level='{self.level}')"
         return f"Point3D(x={self.x:.4f}, y={self.y:.4f}, z={self.z:.4f})"
 
     def __eq__(self, other: object) -> bool:
@@ -185,7 +190,7 @@ class Point3D:
             other: Another Point3D object
 
         Returns:
-            True if points are equal within tolerance
+            True if points are equal within tolerance (coordinates and level match)
         """
         if not isinstance(other, Point3D):
             return False
@@ -193,6 +198,7 @@ class Point3D:
             np.isclose(self.x, other.x)
             and np.isclose(self.y, other.y)
             and np.isclose(self.z, other.z)
+            and self.level == other.level
         )
 
     def __add__(self, other: "Point3D") -> "Point3D":
@@ -289,6 +295,6 @@ class Point3D:
         Create a copy of this point.
 
         Returns:
-            New Point3D with same coordinates
+            New Point3D with same coordinates and level
         """
-        return Point3D(self.x, self.y, self.z)
+        return Point3D(self.x, self.y, self.z, level=self.level)

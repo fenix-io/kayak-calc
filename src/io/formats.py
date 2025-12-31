@@ -60,6 +60,64 @@ JSON_SCHEMA = {
                 "beam": {"type": "number", "minimum": 0},
             },
         },
+        "bow": {
+            "oneOf": [
+                {
+                    # Single point format (legacy, backward compatible)
+                    "type": "object",
+                    "required": ["x", "y", "z"],
+                    "properties": {
+                        "x": {"type": "number"},
+                        "y": {"type": "number"},
+                        "z": {"type": "number"},
+                    },
+                },
+                {
+                    # Multi-point array format (new)
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                        "type": "object",
+                        "required": ["x", "y", "z"],
+                        "properties": {
+                            "x": {"type": "number"},
+                            "y": {"type": "number"},
+                            "z": {"type": "number"},
+                            "level": {"type": "string"},  # Optional level name
+                        },
+                    },
+                },
+            ]
+        },
+        "stern": {
+            "oneOf": [
+                {
+                    # Single point format (legacy, backward compatible)
+                    "type": "object",
+                    "required": ["x", "y", "z"],
+                    "properties": {
+                        "x": {"type": "number"},
+                        "y": {"type": "number"},
+                        "z": {"type": "number"},
+                    },
+                },
+                {
+                    # Multi-point array format (new)
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                        "type": "object",
+                        "required": ["x", "y", "z"],
+                        "properties": {
+                            "x": {"type": "number"},
+                            "y": {"type": "number"},
+                            "z": {"type": "number"},
+                            "level": {"type": "string"},  # Optional level name
+                        },
+                    },
+                },
+            ]
+        },
         "profiles": {
             "type": "array",
             "minItems": MIN_PROFILES_PER_HULL,
@@ -78,6 +136,7 @@ JSON_SCHEMA = {
                                 "x": {"type": "number"},
                                 "y": {"type": "number"},
                                 "z": {"type": "number"},
+                                "level": {"type": "string"},  # Optional level name
                             },
                         },
                     },
